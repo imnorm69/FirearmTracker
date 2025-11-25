@@ -17,8 +17,6 @@ FirearmTracker is a self-hosted web application designed to help firearms enthus
 
 ## About This Project
 
-## About This Project
-
 I created FirearmTracker to help a family member who is a firearms enthusiast and collector. They had been using an older Windows-based commercial application for years, but that software is no longer available or supported. With their transition from a laptop to an iPad, they needed a modern, web-based solution that could be self-hosted on their local network to maintain privacy and control over their collection data.
 
 While I'm not currently a professional developer, I have a background in IT including previous experience as a Windows developer. I built this application with significant assistance from Claude (Anthropic's AI assistant), which helped architect the solution, write much of the codebase, and establish modern best practices throughout.
