@@ -1,0 +1,132 @@
+@page "/ammunition/{AmmunitionId:int}/consumption/add"
+@attribute [Authorize(Roles = "Owner,Administrator,PowerUser")]
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Core.Enums
+@using FirearmTracker.Web.Components
+@inject IAmmunitionRepository AmmunitionRepository
+@inject IAmmunitionTransactionRepository TransactionRepository
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<link href="css/firearms.css" rel="stylesheet" />
+
+<div class="form-container">
+    <h3 class="firearms-header">Record Ammunition Consumption</h3>
+    
+    @if (ammunition != null)
+    {
+        <div class="info-banner">
+            <strong>@ammunition.Caliber</strong>
+            @if (!string.IsNullOrEmpty(ammunition.Manufacturer))
+            {
+                <span> - @ammunition.Manufacturer</span>
+            }
+            @if (!string.IsNullOrEmpty(ammunition.BulletType))
+            {
+                <span> (@ammunition.BulletType)</span>
+            }
+            <br />
+            <span class="text-muted">Current Stock: @ammunition.CurrentQuantity rounds</span>
+        </div>
+    }
+
+    <div class="form-paper">
+        <div class="form-group">
+            <label>Date *</label>
+            <input type="date" @bind="transaction.TransactionDate" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Quantity Used (Number of Rounds) *</label>
+            <input type="number" @bind="transaction.Quantity" class="form-control" placeholder="Number of rounds consumed" />
+            @if (ammunition != null && transaction.Quantity > ammunition.CurrentQuantity)
+            {
+                <small class="text-danger">Warning: Quantity exceeds current stock of @ammunition.CurrentQuantity</small>
+            }
+        </div>
+
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea @bind="transaction.Notes" class="form-control" rows="4" placeholder="Optional: Where/how was this ammunition used?"></textarea>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-error">
+                @errorMessage
+            </div>
+        }
+
+        <div class="form-actions">
+            <button @onclick="SaveTransaction" class="btn-icon-only" title="Save">
+            <Icon Name="save" />
+        </button>
+            <button @onclick="Cancel" class="btn-icon-only" title="Cancel">
+            <Icon Name="back" />
+        </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int AmmunitionId { get; set; }
+
+    private Ammunition? ammunition;
+    private AmmunitionTransaction transaction = new();
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ammunition = await AmmunitionRepository.GetByIdAsync(AmmunitionId);
+        
+        if (ammunition == null)
+        {
+            Navigation.NavigateTo("/ammunition");
+            return;
+        }
+
+        transaction = new AmmunitionTransaction
+        {
+            AmmunitionId = AmmunitionId,
+            TransactionType = AmmunitionTransactionType.ManualConsumption,
+            TransactionDate = DateTime.UtcNow,
+            CreatedDate = DateTime.UtcNow,
+            IsDeleted = false,
+            Notes = string.Empty
+        };
+    }
+
+    private async Task SaveTransaction()
+    {
+        errorMessage = string.Empty;
+
+        if (transaction.Quantity <= 0)
+        {
+            errorMessage = "Quantity must be greater than 0";
+            return;
+        }
+
+        if (ammunition != null && ammunition.CurrentQuantity < transaction.Quantity)
+        {
+            errorMessage = $"Insufficient quantity. Current stock: {ammunition.CurrentQuantity}";
+            return;
+        }
+
+        try
+        {
+            await TransactionRepository.AddAsync(transaction);
+            Navigation.NavigateTo($"/ammunition/detail/{AmmunitionId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving transaction: {ex.Message}";
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo($"/ammunition/detail/{AmmunitionId}");
+    }
+}

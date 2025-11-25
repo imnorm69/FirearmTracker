@@ -1,0 +1,175 @@
+﻿@page "/accessories"
+@attribute [Authorize]
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Web.Components
+@inject IAccessoryRepository AccessoryRepository
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<link href="css/firearms.css" rel="stylesheet" />
+
+<div class="firearms-container">
+    <h3 class="firearms-header">Accessories Inventory</h3>
+
+    @if (showForm)                            
+    {
+    <div class="form-container">
+        <h3>@(editingAccessory?.Id > 0 ? "Edit" : "Add") Accessory</h3>
+        <AccessoryForm Accessory="@editingAccessory"
+                       IsEditMode="@(editingAccessory?.Id > 0)"
+                       OnSaved="OnAccessorySaved"
+                       OnCancelled="OnFormCancelled" />
+    </div>
+    }
+    else                                   
+    {
+    <div class="firearms-header-row">
+        <AuthorizeView Roles="Owner,Administrator,PowerUser">
+            <button @onclick="ShowAddForm" class="btn-icon-only" title="Add Accessory">
+                <Icon Name="add" />
+            </button>
+        </AuthorizeView>
+        <div class="filter-toggle-container">
+            <label class="filter-label">Include Sold</label>
+            <label class="toggle-switch">
+                <input type="checkbox" @bind="includeSold" @bind:after="LoadAccessories" />
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+
+    @if (accessories == null)
+        {
+    <div class="loading">Loading...</div>
+        }
+        else if (!accessories.Any())
+    {
+        <div class="alert alert-info">No accessories in your inventory yet.</div>
+    }
+    else
+    {
+            <table class="firearms-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Manufacturer</th>
+                        <th>Model</th>
+                        <th>Linked Firearm</th>
+                        <th>Purchase Price</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <AuthorizeView Roles="Owner,Administrator,PowerUser">
+                        <Authorized>
+                            @foreach (var item in accessories)
+                            {
+                                <tr style="cursor: pointer;"
+                                    class="@(item.IsDeleted ? "firearm-sold" : "")"
+                                    @onclick="() => EditAccessory(item)">
+                                    <td>@item.Name</td>
+                                    <td>@item.Type</td>
+                                    <td>@item.Manufacturer</td>
+                                    <td>@item.Model</td>
+                                    <td>
+                                        @if (item.LinkedFirearm != null)
+                                        {
+                                            <span>@item.LinkedFirearm.Manufacturer @item.LinkedFirearm.Model</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Not Linked</span>
+                                        }
+                                    </td>
+                                    <td>@(item.PurchasePrice?.ToString("C") ?? "-")</td>
+                                    <td class="status-column">
+                                        @if (item.IsDeleted)
+                                        {
+                                            <span class="sold-badge">SOLD</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </Authorized>
+                        <NotAuthorized>
+                            @foreach (var item in accessories)
+                            {
+                                <tr class="@(item.IsDeleted ? "firearm-sold" : "")">
+                                    <td>@item.Name</td>
+                                    <td>@item.Type</td>
+                                    <td>@item.Manufacturer</td>
+                                    <td>@item.Model</td>
+                                    <td>
+                                        @if (item.LinkedFirearm != null)
+                                        {
+                                            <span>@item.LinkedFirearm.Manufacturer @item.LinkedFirearm.Model</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Not Linked</span>
+                                        }
+                                    </td>
+                                    <td>@(item.PurchasePrice?.ToString("C") ?? "-")</td>
+                                    <td class="status-column">
+                                        @if (item.IsDeleted)
+                                        {
+                                            <span class="sold-badge">SOLD</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </tbody>
+            </table>
+    }
+    }                                         
+</div>
+
+@code {
+    private List<Accessory>? accessories;
+    private bool includeSold = false;
+    private bool showForm = false;
+    private Accessory? editingAccessory;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAccessories();
+    }
+
+    private async Task LoadAccessories()
+    {
+        var allAccessories = await AccessoryRepository.GetAllAsync();
+
+        accessories = includeSold
+            ? allAccessories.ToList()
+            : allAccessories.Where(a => !a.IsDeleted).ToList();
+
+        showForm = false;
+    }
+
+    private void ShowAddForm()
+    {
+        editingAccessory = new Accessory();
+        showForm = true;
+    }
+
+    private void EditAccessory(Accessory accessory)
+    {
+        editingAccessory = accessory;
+        showForm = true;
+    }
+
+    private async Task OnAccessorySaved()
+    {
+        await LoadAccessories();
+    }
+
+    private void OnFormCancelled()
+    {
+        showForm = false;
+        editingAccessory = null;
+    }
+}

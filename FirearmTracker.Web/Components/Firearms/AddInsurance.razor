@@ -1,0 +1,198 @@
+﻿@page "/firearms/{FirearmId:int}/insurance/add"
+@page "/firearms/{FirearmId:int}/insurance/{ActivityId:int}/edit"
+@attribute [Authorize(Roles = "Owner,Administrator,PowerUser")]
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Core.Enums
+@using System.Text.Json
+@using FirearmTracker.Web.Components
+@inject IActivityRepository ActivityRepository
+@inject IFirearmRepository FirearmRepository
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<link href="css/firearms.css" rel="stylesheet" />
+
+<div class="form-container">
+    <h3 class="firearms-header">@(isEditMode ? "Edit" : "Record") Insurance Coverage</h3>
+    
+    @if (firearm != null)
+    {
+        <p><strong>Firearm:</strong> @firearm.Manufacturer @firearm.Model</p>
+    }
+
+    <div class="form-paper">
+        <div class="form-group">
+            <label>Effective Date *</label>
+            <input type="date" @bind="activityDate" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Coverage Amount *</label>
+            <input type="number" step="0.01" @bind="coverageAmount" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Insurance Company *</label>
+            <input type="text" @bind="insuranceData.InsuranceCompany" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Policy Number</label>
+            <input type="text" @bind="insuranceData.PolicyNumber" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Expiration Date</label>
+            <input type="date" @bind="insuranceData.ExpirationDate" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Company Contact Info</label>
+            <textarea @bind="insuranceData.CompanyContact" class="form-control" rows="3" placeholder="Phone, email, agent name, etc."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea @bind="notes" class="form-control" rows="4"></textarea>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-error">
+                @errorMessage
+            </div>
+        }
+
+        <div class="form-actions">
+            <button @onclick="SaveInsurance" class="btn-icon-only" title="Save">
+            <Icon Name="save" />
+        </button>
+            <button @onclick="Cancel" class="btn-icon-only" title="Cancel">
+            <Icon Name="back" />
+        </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int FirearmId { get; set; }
+
+    [Parameter]
+    public int? ActivityId { get; set; }
+
+    private Firearm? firearm;
+    private Activity? existingActivity;
+    private DateTime? activityDate;
+    private decimal? coverageAmount;
+    private string notes = string.Empty;
+    private string errorMessage = string.Empty;
+    private InsuranceActivityData insuranceData = new();
+    private bool isEditMode => ActivityId.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        firearm = await FirearmRepository.GetByIdAsync(FirearmId);
+        if (firearm == null)
+        {
+            Navigation.NavigateTo("/firearms");
+            return;
+        }
+
+        if (isEditMode)
+        {
+            existingActivity = await ActivityRepository.GetByIdAsync(ActivityId!.Value);
+            if (existingActivity == null || existingActivity.ActivityType != ActivityType.Insurance)
+            {
+                Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+                return;
+            }
+
+            activityDate = existingActivity.ActivityDate;
+            coverageAmount = existingActivity.Amount;
+            notes = existingActivity.Notes;
+
+            if (!string.IsNullOrEmpty(existingActivity.AdditionalData))
+            {
+                try
+                {
+                    insuranceData = JsonSerializer.Deserialize<InsuranceActivityData>(existingActivity.AdditionalData) ?? new();
+                }
+                catch
+                {
+                    insuranceData = new();
+                }
+            }
+        }
+    }
+
+    private async Task SaveInsurance()
+    {
+        errorMessage = string.Empty;
+
+        if (!activityDate.HasValue)
+        {
+            errorMessage = "Effective Date is required";
+            return;
+        }
+
+        if (!coverageAmount.HasValue || coverageAmount.Value <= 0)
+        {
+            errorMessage = "Coverage Amount is required and must be greater than zero";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(insuranceData.InsuranceCompany))
+        {
+            errorMessage = "Insurance Company is required";
+            return;
+        }
+
+        try
+        {
+            var description = $"Insurance coverage: {coverageAmount.Value:C}";
+            if (insuranceData.ExpirationDate.HasValue)
+            {
+                description += $" (expires {insuranceData.ExpirationDate.Value.ToShortDateString()})";
+            }
+
+            if (isEditMode && existingActivity != null)
+            {
+                existingActivity.ActivityDate = activityDate.Value;
+                existingActivity.Amount = coverageAmount.Value;
+                existingActivity.Description = description;
+                existingActivity.Notes = notes;
+                existingActivity.AdditionalData = JsonSerializer.Serialize(insuranceData);
+
+                await ActivityRepository.UpdateAsync(existingActivity);
+            }
+            else
+            {
+                var activity = new Activity
+                {
+                    FirearmId = FirearmId,
+                    ActivityType = ActivityType.Insurance,
+                    ActivityDate = activityDate.Value,
+                    Amount = coverageAmount.Value,
+                    Description = description,
+                    Notes = notes,
+                    AdditionalData = JsonSerializer.Serialize(insuranceData)
+                };
+
+                await ActivityRepository.AddAsync(activity);
+            }
+
+            Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving insurance: {ex.Message}";
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+    }
+}

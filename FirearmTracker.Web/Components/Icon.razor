@@ -1,0 +1,33 @@
+@* 
+    SVG Icon Component
+    Usage: <Icon Name="purchase" Size="small" />
+           <Icon Name="repair-diy" Size="medium" />
+    
+    SVG files should be in wwwroot/icons/ folder
+*@
+
+<img src="/icons/@(Name).svg" 
+     alt="@(Alt ?? Name)" 
+     title="@Title"
+     class="icon icon-@Size.ToLower() @CssClass"
+     style="@CustomStyle" />
+
+@code {
+    [Parameter]
+    public string Name { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Size { get; set; } = "medium"; // small, medium, large
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string? Alt { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? CustomStyle { get; set; }
+}

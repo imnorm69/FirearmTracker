@@ -1,0 +1,199 @@
+﻿@page "/firearms/{FirearmId:int}/modification/add"
+@page "/firearms/{FirearmId:int}/modification/{ActivityId:int}/edit"
+@attribute [Authorize(Roles = "Owner,Administrator,PowerUser")]
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Core.Enums
+@using System.Text.Json
+@using FirearmTracker.Web.Components
+@inject IActivityRepository ActivityRepository
+@inject IFirearmRepository FirearmRepository
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<link href="css/firearms.css" rel="stylesheet" />
+
+<div class="form-container">
+    <h3 class="firearms-header">@(isEditMode ? "Edit" : "Record") Modification/Accessory</h3>
+
+    @if (firearm != null)
+    {
+        <p><strong>Firearm:</strong> @firearm.Manufacturer @firearm.Model</p>
+    }
+
+    <div class="form-paper">
+        <div class="form-group">
+            <label>Date Installed *</label>
+            <input type="date" @bind="activityDate" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Accessory/Part Name *</label>
+            <input type="text" @bind="modData.AccessoryPartName" class="form-control" placeholder="e.g., Red dot sight, Extended magazine" />
+        </div>
+
+        <div class="form-group">
+            <label>Cost</label>
+            <input type="number" step="0.01" @bind="cost" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Installed By *</label>
+            <select @bind="modData.InstalledBy" class="form-control">
+                <option value="">Select...</option>
+                <option value="Self">Self</option>
+                <option value="Professional">Professional</option>
+            </select>
+        </div>
+
+        @if (modData.InstalledBy == "Professional")
+        {
+            <div class="form-group">
+                <label>Vendor/Installer Name</label>
+                <input type="text" @bind="modData.VendorInstallerName" class="form-control" />
+            </div>
+        }
+
+        <div class="form-group">
+            <label>Description</label>
+            <textarea @bind="modData.Description" class="form-control" rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea @bind="notes" class="form-control" rows="4"></textarea>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-error">
+                @errorMessage
+            </div>
+        }
+
+        <div class="form-actions">
+            <button @onclick="SaveModification" class="btn-icon-only" title="Save">
+            <Icon Name="save" />
+        </button>
+            <button @onclick="Cancel" class="btn-icon-only" title="Cancel">
+            <Icon Name="back" />
+        </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int FirearmId { get; set; }
+
+    [Parameter]
+    public int? ActivityId { get; set; }
+
+    private Firearm? firearm;
+    private Activity? existingActivity;
+    private DateTime? activityDate;
+    private decimal? cost;
+    private string notes = string.Empty;
+    private string errorMessage = string.Empty;
+    private ModificationActivityData modData = new();
+    private bool isEditMode => ActivityId.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        firearm = await FirearmRepository.GetByIdAsync(FirearmId);
+        if (firearm == null)
+        {
+            Navigation.NavigateTo("/firearms");
+            return;
+        }
+
+        if (isEditMode)
+        {
+            existingActivity = await ActivityRepository.GetByIdAsync(ActivityId!.Value);
+            if (existingActivity == null || existingActivity.ActivityType != ActivityType.Modification)
+            {
+                Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+                return;
+            }
+
+            activityDate = existingActivity.ActivityDate;
+            cost = existingActivity.Amount;
+            notes = existingActivity.Notes;
+
+            if (!string.IsNullOrEmpty(existingActivity.AdditionalData))
+            {
+                try
+                {
+                    modData = JsonSerializer.Deserialize<ModificationActivityData>(existingActivity.AdditionalData) ?? new();
+                }
+                catch
+                {
+                    modData = new();
+                }
+            }
+        }
+    }
+
+    private async Task SaveModification()
+    {
+        errorMessage = string.Empty;
+
+        if (!activityDate.HasValue)
+        {
+            errorMessage = "Date is required";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(modData.AccessoryPartName))
+        {
+            errorMessage = "Accessory/Part Name is required";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(modData.InstalledBy))
+        {
+            errorMessage = "Installed By is required";
+            return;
+        }
+
+        try
+        {
+            if (isEditMode && existingActivity != null)
+            {
+                existingActivity.ActivityDate = activityDate.Value;
+                existingActivity.Amount = cost;
+                existingActivity.Description = $"Installed {modData.AccessoryPartName}";
+                existingActivity.Notes = notes;
+                existingActivity.AdditionalData = JsonSerializer.Serialize(modData);
+
+                await ActivityRepository.UpdateAsync(existingActivity);
+            }
+            else
+            {
+                var activity = new Activity
+                {
+                    FirearmId = FirearmId,
+                    ActivityType = ActivityType.Modification,
+                    ActivityDate = activityDate.Value,
+                    Amount = cost,
+                    Description = $"Installed {modData.AccessoryPartName}",
+                    Notes = notes,
+                    AdditionalData = JsonSerializer.Serialize(modData)
+                };
+
+                await ActivityRepository.AddAsync(activity);
+            }
+
+            Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving modification: {ex.Message}";
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+    }
+}

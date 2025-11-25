@@ -1,0 +1,200 @@
+using FirearmTracker.Core.Interfaces;
+using FirearmTracker.Data.Context;
+using FirearmTracker.Data.Repositories;
+using FirearmTracker.Web.Components;
+using FirearmTracker.Web.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Razor / Blazor
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+// Enable detailed logging for antiforgery
+builder.Logging.AddFilter("Microsoft.AspNetCore.Antiforgery", LogLevel.Debug);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Components.Forms", LogLevel.Debug);
+
+// Database
+//builder.Services.AddDbContext<FirearmTrackerContext>(options =>
+//    options.UseSqlite(
+//        builder.Configuration.GetConnectionString("DefaultConnection")
+//        ?? "Data Source=firearms.db"));
+builder.Services.AddDbContext<FirearmTrackerContext>(options =>
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? "Data Source=firearms.db"));
+
+// Repositories
+builder.Services.AddScoped<IFirearmRepository, FirearmRepository>();
+builder.Services.AddScoped<IActivityRepository, ActivityRepository>();
+builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
+builder.Services.AddScoped<IAccessoryRepository, AccessoryRepository>();
+builder.Services.AddScoped<IAmmunitionRepository, AmmunitionRepository>();
+builder.Services.AddScoped<IAmmunitionTransactionRepository, AmmunitionTransactionRepository>();
+builder.Services.AddScoped<IFirearmAmmunitionLinkRepository, FirearmAmmunitionLinkRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+
+// Services
+builder.Services.AddScoped<FileUploadService>();
+builder.Services.AddScoped<FirearmOwnershipService>();
+builder.Services.AddScoped<CaliberService>();
+builder.Services.AddScoped<IconService>();
+builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<IAvatarService, AvatarService>();
+builder.Services.AddSingleton<IHealthCheckService, HealthCheckService>();
+
+// Authentication
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/login";
+        options.LogoutPath = "/logout";
+        options.ExpireTimeSpan = TimeSpan.FromDays(7);
+        options.SlidingExpiration = true;
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    });
+
+builder.Services.AddAuthorization();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddCascadingAuthenticationState();
+
+var app = builder.Build();
+
+// Run initial health check
+using (var scope = app.Services.CreateScope())
+{
+    var healthCheck = scope.ServiceProvider.GetRequiredService<IHealthCheckService>();
+    await healthCheck.RunChecksAsync(); // Wait for it to complete
+}
+
+//
+// 1. APPLY MIGRATIONS BEFORE ANY OTHER LOGIC
+//
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<FirearmTrackerContext>();
+        await context.Database.MigrateAsync();
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred applying database migrations.");
+
+        if (app.Environment.IsDevelopment())
+            throw;
+    }
+}
+
+// Error handling
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseHsts();
+}
+
+// Only redirect to HTTPS in Development.
+// Your LXC is Production and uses HTTP on port 80.
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseStaticFiles();
+
+//
+// 2. FIRST-TIME SETUP CHECK — SAFE, NO REDIRECT LOOP
+//
+//
+// 2. FIRST-TIME SETUP CHECK — SAFE, NO REDIRECT LOOP
+//
+app.Use(async (context, next) =>
+{
+    // Skip the check for static files, _framework, and antiforgery endpoints
+    if (context.Request.Path.StartsWithSegments("/_framework") ||
+        context.Request.Path.StartsWithSegments("/_blazor") ||
+        context.Request.Path.StartsWithSegments("/css") ||
+        context.Request.Path.StartsWithSegments("/bootstrap") ||
+        context.Request.Path.Value?.Contains("antiforgery", StringComparison.OrdinalIgnoreCase) == true)
+    {
+        await next();
+        return;
+    }
+
+    // Only check for first-time setup on actual page requests
+    if (context.Request.Path.StartsWithSegments("/setup"))
+    {
+        await next();
+        return;
+    }
+
+    var authService = context.RequestServices.GetRequiredService<IAuthenticationService>();
+    var isFirstTime = await authService.IsFirstTimeSetupAsync();
+
+    if (isFirstTime)
+    {
+        context.Response.Redirect("/setup");
+        return;
+    }
+
+    await next();
+});
+
+app.UseAntiforgery();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
+
+// Avatar endpoint
+app.MapGet("/avatar/{userId:int}", async (int userId, IAvatarService avatarService, HttpContext context) =>
+{
+    var (imageData, contentType) = await avatarService.GetUserAvatarAsync(userId);
+
+    if (imageData != null && contentType != null)
+    {
+        context.Response.ContentType = contentType;
+        await context.Response.Body.WriteAsync(imageData);
+        return Results.Empty;
+    }
+
+    return Results.NotFound();
+});
+
+// Current user avatar endpoint
+app.MapGet("/avatar/current", async (HttpContext context, IAvatarService avatarService, IUserRepository userRepository) =>
+{
+    var username = context.User.Identity?.Name;
+    if (string.IsNullOrEmpty(username))
+    {
+        return Results.NotFound();
+    }
+
+    var user = await userRepository.GetByUsernameAsync(username);
+    if (user == null)
+    {
+        return Results.NotFound();
+    }
+
+    var (imageData, contentType) = await avatarService.GetUserAvatarAsync(user.Id);
+
+    if (imageData != null && contentType != null)
+    {
+        context.Response.ContentType = contentType;
+        await context.Response.Body.WriteAsync(imageData);
+        return Results.Empty;
+    }
+
+    return Results.NotFound();
+});
+
+app.Run();

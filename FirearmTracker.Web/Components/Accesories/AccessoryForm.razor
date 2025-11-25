@@ -1,0 +1,269 @@
+@attribute [Authorize(Roles = "Owner,Administrator,PowerUser")]
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Web.Components
+@inject IAccessoryRepository AccessoryRepository
+@inject IFirearmRepository FirearmRepository
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<link href="css/firearms.css" rel="stylesheet" />
+
+<div class="form-paper">
+    <div class="form-group">
+        <label>Name *</label>
+        <input type="text" @bind="accessory.Name" class="form-control" placeholder="e.g., Red Dot Sight, Leather Holster" />
+    </div>
+
+    <div class="form-group">
+        <label>Type *</label>
+        <select @bind="accessory.Type" class="form-control">
+            <option value="">Select Type...</option>
+            <option value="Optic">Optic (Scope, Red Dot, Holographic)</option>
+            <option value="Sight">Iron Sights</option>
+            <option value="Magazine">Magazine</option>
+            <option value="Holster">Holster</option>
+            <option value="Sling">Sling</option>
+            <option value="Light">Light/Laser</option>
+            <option value="Grip">Grip/Foregrip</option>
+            <option value="Stock">Stock/Brace</option>
+            <option value="Suppressor">Suppressor/Silencer</option>
+            <option value="Bipod">Bipod</option>
+            <option value="Case">Case/Storage</option>
+            <option value="Cleaning Kit">Cleaning Kit</option>
+            <option value="Other">Other</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Manufacturer</label>
+        <input type="text" @bind="accessory.Manufacturer" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label>Model</label>
+        <input type="text" @bind="accessory.Model" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label>Serial Number</label>
+        <input type="text" @bind="accessory.SerialNumber" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label>Purchase Date</label>
+        <input type="date" @bind="accessory.PurchaseDate" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label>Purchase Price</label>
+        <input type="number" step="0.01" @bind="accessory.PurchasePrice" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label>Link to Firearm (Optional)</label>
+        <select @bind="accessory.LinkedFirearmId" @bind:after="OnFirearmLinked" class="form-control">
+            <option value="">Not Linked</option>
+            @foreach (var firearm in firearms)
+            {
+                <option value="@firearm.Id">@firearm.Manufacturer @firearm.Model</option>
+            }
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Sold Date</label>
+        <input type="date" @bind="accessory.SaleDate" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label>Sold Price</label>
+        <input type="number" step="0.01" @bind="accessory.SalePrice" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label>Notes</label>
+        <textarea @bind="accessory.Notes" class="form-control" rows="4"></textarea>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-error">
+            @errorMessage
+        </div>
+    }
+
+    <div class="form-actions">
+        <button @onclick="SaveAccessory" class="btn-icon-only" title="@(IsEditMode ? "Update" : "Save")">
+            <Icon Name="save" />
+        </button>
+        @if (IsEditMode && !accessory.IsDeleted)
+        {
+            <button @onclick="() => showSellDialog = true" class="btn-icon-only" title="Mark as Sold">
+                <Icon Name="sold" />
+            </button>
+        }
+        <button @onclick="Cancel" class="btn-icon-only" title="Cancel">
+            <Icon Name="back" />
+        </button>
+    </div>
+</div>
+
+@if (showSellDialog)
+{
+    <div class="confirmation-overlay">
+        <div class="confirmation-dialog">
+            <h4>Mark Accessory as Sold</h4>
+
+            <div class="form-group">
+                <label>Sale Date *</label>
+                <input type="date" @bind="saleDate" class="form-control" />
+            </div>
+
+            <div class="form-group">
+                <label>Sale Price</label>
+                <input type="number" step="0.01" @bind="salePrice" class="form-control" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(sellErrorMessage))
+            {
+                <div class="alert alert-error">
+                    @sellErrorMessage
+                </div>
+            }
+
+            <div class="confirmation-actions">
+                <button @onclick="MarkAsSold" class="btn-icon-only" title="Mark as Sold">
+            <Icon Name="sold" />
+        </button>
+                <button @onclick="CancelSell" class="btn-icon-only" title="Cancel">
+            <Icon Name="back" />
+        </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Accessory Accessory { get; set; } = new();
+
+    [Parameter]
+    public bool IsEditMode { get; set; } = false;
+
+    [Parameter]
+    public EventCallback OnSaved { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancelled { get; set; }
+
+    private Accessory accessory = new();
+    private List<Firearm> firearms = new();
+    private string errorMessage = string.Empty;
+
+    private bool showSellDialog = false;
+    private DateTime? saleDate = DateTime.UtcNow;
+    private decimal? salePrice;
+    private string sellErrorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        accessory = Accessory;
+        firearms = await FirearmRepository.GetAllAsync();
+        firearms = firearms.Where(f => !f.IsDeleted).ToList();
+    }
+
+    private void OnFirearmLinked()
+    {
+        if (accessory.LinkedFirearmId.HasValue)
+        {
+            accessory.Status = AccessoryStatus.LinkedToFirearm;
+        }
+        else
+        {
+            accessory.Status = AccessoryStatus.Available;
+        }
+    }
+
+    private async Task SaveAccessory()
+    {
+        errorMessage = string.Empty;
+        if (string.IsNullOrWhiteSpace(accessory.Name))
+        {
+            errorMessage = "Name is required";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(accessory.Type))
+        {
+            errorMessage = "Type is required";
+            return;
+        }
+        try
+        {
+            // Convert DateTime fields to UTC before saving
+            if (accessory.PurchaseDate.HasValue && accessory.PurchaseDate.Value.Kind == DateTimeKind.Unspecified)
+            {
+                accessory.PurchaseDate = DateTime.SpecifyKind(accessory.PurchaseDate.Value, DateTimeKind.Utc);
+            }
+            if (accessory.SaleDate.HasValue && accessory.SaleDate.Value.Kind == DateTimeKind.Unspecified)
+            {
+                accessory.SaleDate = DateTime.SpecifyKind(accessory.SaleDate.Value, DateTimeKind.Utc);
+            }
+
+            if (IsEditMode)
+            {
+                await AccessoryRepository.UpdateAsync(accessory);
+            }
+            else
+            {
+                await AccessoryRepository.AddAsync(accessory);
+            }
+            await OnSaved.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving accessory: {ex.Message}";
+        }
+    }
+    private async Task Cancel()
+    {
+        await OnCancelled.InvokeAsync();
+    }
+
+    private async Task MarkAsSold()
+    {
+        sellErrorMessage = string.Empty;
+        if (!saleDate.HasValue)
+        {
+            sellErrorMessage = "Sale date is required";
+            return;
+        }
+        try
+        {
+            // Convert to UTC if needed
+            var saleDateUtc = saleDate.Value.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(saleDate.Value, DateTimeKind.Utc)
+                : saleDate.Value;
+
+            accessory.SaleDate = saleDateUtc;
+            accessory.SalePrice = salePrice;
+            accessory.Status = AccessoryStatus.Sold;
+            accessory.LinkedFirearmId = null;
+            await AccessoryRepository.UpdateAsync(accessory);
+            await OnSaved.InvokeAsync();
+            showSellDialog = false;
+        }
+        catch (Exception ex)
+        {
+            sellErrorMessage = $"Error marking as sold: {ex.Message}";
+        }
+    }
+
+    private void CancelSell()
+    {
+        showSellDialog = false;
+        saleDate = DateTime.UtcNow;
+        salePrice = null;
+        sellErrorMessage = string.Empty;
+    }
+}

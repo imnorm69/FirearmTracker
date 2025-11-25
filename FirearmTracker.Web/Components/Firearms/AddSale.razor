@@ -1,0 +1,264 @@
+﻿@page "/firearms/{FirearmId:int}/sale/add"
+@page "/firearms/{FirearmId:int}/sale/{ActivityId:int}/edit"
+@attribute [Authorize(Roles = "Owner,Administrator,PowerUser")]
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Core.Enums
+@using System.Text.Json
+@using FirearmTracker.Web.Components
+@inject IActivityRepository ActivityRepository
+@inject IFirearmRepository FirearmRepository
+@inject NavigationManager Navigation
+@inject IAccessoryRepository AccessoryRepository
+@rendermode InteractiveServer
+
+<link href="css/firearms.css" rel="stylesheet" />
+
+<div class="form-container">
+    <h3 class="firearms-header">@(isEditMode ? "Edit" : "Record") Sale</h3>
+
+    @if (firearm != null)
+    {
+        <p><strong>Firearm:</strong> @firearm.Manufacturer @firearm.Model</p>
+    }
+
+    <div class="form-paper">
+        <div class="form-group">
+            <label>Sold Date *</label>
+            <input type="date" @bind="soldDate" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Selling Price *</label>
+            <input type="number" step="0.01" @bind="sellingPrice" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Sold To *</label>
+            <select @bind="saleData.SoldToType" class="form-control">
+                <option value="">Select...</option>
+                <option value="Dealer">Dealer</option>
+                <option value="Private Party">Private Party</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Name *</label>
+            <input type="text" @bind="saleData.SoldToName" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Street Address</label>
+            <input type="text" @bind="saleData.StreetAddress" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>City</label>
+            <input type="text" @bind="saleData.City" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>State</label>
+            <input type="text" @bind="saleData.State" class="form-control" maxlength="2" />
+        </div>
+
+        <div class="form-group">
+            <label>ZIP Code</label>
+            <input type="text" @bind="saleData.ZipCode" class="form-control" maxlength="10" />
+        </div>
+
+        <div class="form-group">
+            <label>Phone</label>
+            <input type="tel" @bind="saleData.Phone" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" @bind="saleData.Email" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea @bind="notes" class="form-control" rows="4"></textarea>
+        </div>
+        @if (linkedAccessories.Any())
+        {
+            <div class="form-group">
+                <label><strong>Linked Accessories</strong></label>
+                <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 10px;">
+                    Select accessories to include with this sale:
+                </p>
+                <div style="border: 1px solid #dee2e6; border-radius: 4px; padding: 15px; background: #f8f9fa;">
+                    @foreach (var accessory in linkedAccessories)
+                    {
+                        <div style="margin-bottom: 10px;">
+                            <label style="font-weight: normal; cursor: pointer;">
+                                <input type="checkbox"
+                                       @bind="accessoriesToSell[accessory.Id]"
+                                       style="margin-right: 8px;" />
+                                @accessory.Name (@accessory.Type)
+                                @if (!string.IsNullOrEmpty(accessory.Manufacturer))
+                                {
+                                    <span> - @accessory.Manufacturer</span>
+                                }
+                            </label>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-error">
+                @errorMessage
+            </div>
+        }
+
+        <div class="form-actions">
+            <button @onclick="SaveSale" class="btn-icon-only" title="Save">
+            <Icon Name="save" />
+        </button>
+            <button @onclick="Cancel" class="btn-icon-only" title="Cancel">
+            <Icon Name="back" />
+        </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int FirearmId { get; set; }
+
+    [Parameter]
+    public int? ActivityId { get; set; }
+
+    private Firearm? firearm;
+    private Activity? existingActivity;
+    private DateTime? soldDate;
+    private decimal? sellingPrice;
+    private string notes = string.Empty;
+    private string errorMessage = string.Empty;
+    private SaleActivityData saleData = new();
+    private bool isEditMode => ActivityId.HasValue;
+
+    private List<Accessory> linkedAccessories = new();
+    private Dictionary<int, bool> accessoriesToSell = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        firearm = await FirearmRepository.GetByIdAsync(FirearmId);
+        if (firearm == null)
+        {
+            Navigation.NavigateTo("/firearms");
+            return;
+        }
+
+        // Load linked accessories
+        linkedAccessories = await AccessoryRepository.GetByFirearmIdAsync(FirearmId);
+
+        // Initialize checkbox states (all unchecked by default)
+        foreach (var accessory in linkedAccessories)
+        {
+            accessoriesToSell[accessory.Id] = false;
+        }
+
+        if (isEditMode)
+        {
+            existingActivity = await ActivityRepository.GetByIdAsync(ActivityId!.Value);
+            if (existingActivity == null || existingActivity.ActivityType != ActivityType.Sale)
+            {
+                Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+                return;
+            }
+
+            soldDate = existingActivity.ActivityDate;
+            sellingPrice = existingActivity.Amount;
+            notes = existingActivity.Notes;
+
+            if (!string.IsNullOrEmpty(existingActivity.AdditionalData))
+            {
+                try
+                {
+                    saleData = JsonSerializer.Deserialize<SaleActivityData>(existingActivity.AdditionalData) ?? new();
+                }
+                catch
+                {
+                    saleData = new();
+                }
+            }
+        }
+    }
+
+    private async Task SaveSale()
+    {
+        errorMessage = string.Empty;
+
+        if (!soldDate.HasValue)
+        {
+            errorMessage = "Sale date is required";
+            return;
+        }
+
+        try
+        {
+            // Create description from sale data
+            string description = $"Sold for {sellingPrice?.ToString("C") ?? "undisclosed amount"}";
+            if (!string.IsNullOrEmpty(saleData.SoldToName))
+            {
+                description += $" to {saleData.SoldToName}";
+            }
+
+            if (isEditMode && existingActivity != null)
+            {
+                existingActivity.ActivityDate = soldDate.Value;
+                existingActivity.Description = description;
+                existingActivity.Notes = notes;
+                existingActivity.Amount = sellingPrice;
+                existingActivity.AdditionalData = JsonSerializer.Serialize(saleData);
+
+                await ActivityRepository.UpdateAsync(existingActivity);
+            }
+            else
+            {
+                var activity = new Activity
+                {
+                    FirearmId = FirearmId,
+                    ActivityType = ActivityType.Sale,
+                    ActivityDate = soldDate.Value,
+                    Description = description,
+                    Notes = notes,
+                    Amount = sellingPrice,
+                    AdditionalData = JsonSerializer.Serialize(saleData)
+                };
+
+                await ActivityRepository.AddAsync(activity);
+
+                // REMOVED: Don't mark firearm as deleted - sold status comes from activity history
+
+                // Handle selected accessories
+                foreach (var accessoryId in accessoriesToSell.Where(kvp => kvp.Value).Select(kvp => kvp.Key))
+                {
+                    var accessory = await AccessoryRepository.GetByIdAsync(accessoryId);
+                    if (accessory != null)
+                    {
+                        accessory.SaleDate = soldDate.Value;
+                        accessory.SalePrice = null;
+                        accessory.LinkedFirearmId = null;
+                        await AccessoryRepository.UpdateAsync(accessory);
+                    }
+                }
+            }
+
+            Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving sale: {ex.Message}";
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+    }
+}

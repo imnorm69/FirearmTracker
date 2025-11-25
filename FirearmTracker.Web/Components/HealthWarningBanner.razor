@@ -1,0 +1,40 @@
+﻿@using FirearmTracker.Core.Interfaces
+@inject IHealthCheckService HealthCheckService
+@inject ILogger<HealthWarningBanner> Logger
+
+@if (_showWarnings && _warnings.Any())
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <strong>System Warnings:</strong>
+        <ul class="mb-0 mt-2">
+            @foreach (var warning in _warnings)
+            {
+                <li>@warning</li>
+            }
+        </ul>
+        <button type="button" class="btn-close" @onclick="DismissWarnings" aria-label="Close"></button>
+    </div>
+}
+
+@code {
+    private List<string> _warnings = new();
+    private bool _showWarnings = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Logger.LogInformation("HealthWarningBanner: Checking health status...");
+        var results = await HealthCheckService.RunChecksAsync();
+        _warnings = results.GetWarningMessages();
+        Logger.LogInformation("HealthWarningBanner: Found {Count} warnings", _warnings.Count);
+
+        foreach (var warning in _warnings)
+        {
+            Logger.LogInformation("Warning: {Message}", warning);
+        }
+    }
+
+    private void DismissWarnings()
+    {
+        _showWarnings = false;
+    }
+}

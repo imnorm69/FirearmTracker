@@ -1,0 +1,425 @@
+@page "/reports/firearm-detail"
+@attribute [Authorize]
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models.Reports
+@using FirearmTracker.Web.Components
+@inject IReportService ReportService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<link href="css/firearms.css" rel="stylesheet" />
+
+<div class="firearms-container">
+    <div class="firearms-header-row">
+        <h3 class="firearms-header">Firearm Detail Report</h3>
+        <button @onclick="BackToReports" class="btn-icon-only" title="Back to Reports">
+            <Icon Name="back" />
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading">Loading configuration...</div>
+    }
+    else if (config != null)
+    {
+        <!-- Configuration Panel -->
+        <div class="report-config-panel">
+            <h4>Report Configuration</h4>
+
+            <!-- Related Tables Selection -->
+            <div class="config-section">
+                <h5>Related Information to Include</h5>
+                <div class="column-checkboxes">
+                    @foreach (var table in config.AvailableRelatedTables)
+                    {
+                        <label class="checkbox-label">
+                            <input type="checkbox" 
+                                   checked="@config.SelectedRelatedTables.Contains(table)"
+                                   @onchange="@(e => ToggleRelatedTable(table, (bool)e.Value!))" />
+                            @table
+                        </label>
+                    }
+                </div>
+            </div>
+
+            <!-- Firearm Selection Filters -->
+            <div class="config-section">
+                <h5>Firearms to Include</h5>
+                <p class="text-muted" style="font-size: 0.9rem;">Select which firearms to include in the report</p>
+                <div class="filter-controls">
+                    <!-- Manufacturer Filter -->
+                    <div class="filter-group">
+                        <label>Manufacturer</label>
+                        <select multiple class="form-control" style="height: 100px;">
+                            <option disabled>-- Select one or more --</option>
+                            <option>All manufacturers</option>
+                            <!-- TODO: Add actual manufacturers -->
+                        </select>
+                    </div>
+
+                    <!-- Caliber Filter -->
+                    <div class="filter-group">
+                        <label>Caliber</label>
+                        <select multiple class="form-control" style="height: 100px;">
+                            <option disabled>-- Select one or more --</option>
+                            <option>All calibers</option>
+                            <!-- TODO: Add actual calibers -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Print Options -->
+            <div class="config-section">
+                <h5>Print Options</h5>
+                <label class="checkbox-label">
+                    <input type="checkbox" checked="@config.PageBreakBetweenRecords" 
+                           @onchange="@(e => config.PageBreakBetweenRecords = (bool)e.Value!)" />
+                    Page break between firearms
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" checked="@config.PreventLineBreaks" 
+                           @onchange="@(e => config.PreventLineBreaks = (bool)e.Value!)" />
+                    Prevent splitting text across pages
+                </label>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="report-actions">
+                <button @onclick="GenerateReport" class="btn btn-primary">
+                    <Icon Name="view" /> Generate Report
+                </button>
+                <button @onclick="PrintReport" class="btn btn-secondary" disabled="@(reportResult == null)">
+                    <Icon Name="printer" /> Print
+                </button>
+                <button @onclick="ExportToPdf" class="btn btn-secondary" disabled="@(reportResult == null)">
+                    <Icon Name="export" /> Export PDF
+                </button>
+            </div>
+        </div>
+
+        <!-- Report Preview -->
+        @if (reportResult != null)
+        {
+            <div class="report-preview">
+                <h4>@reportResult.ReportTitle</h4>
+                <p class="text-muted">Generated: @reportResult.GeneratedDate.ToString("f") | Total Firearms: @reportResult.TotalRecords</p>
+
+                @foreach (var record in reportResult.Records)
+                {
+                    <div class="firearm-detail-section" style="@(config.PageBreakBetweenRecords ? "page-break-after: always;" : "")">
+                        <!-- Header Section -->
+                        <div class="detail-header">
+                            <h5>@record.HeaderFields["Manufacturer"] @record.HeaderFields["Model"]</h5>
+                            <div class="detail-grid">
+                                @foreach (var field in config.HeaderFields)
+                                {
+                                    if (record.HeaderFields.ContainsKey(field))
+                                    {
+                                        <div class="detail-field">
+                                            <span class="field-label">@FormatFieldName(field):</span>
+                                            <span class="field-value">@FormatFieldValue(record.HeaderFields[field])</span>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Related Tables -->
+                        @foreach (var tableName in config.SelectedRelatedTables)
+                        {
+                            if (record.RelatedTables.ContainsKey(tableName) && record.RelatedTables[tableName].Any())
+                            {
+                                <div class="related-table-section">
+                                    <h6>@tableName</h6>
+                                    <table class="detail-table">
+                                        <thead>
+                                            <tr>
+                                                @foreach (var colName in record.RelatedTables[tableName].First().Keys)
+                                                {
+                                                    <th>@FormatFieldName(colName)</th>
+                                                }
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var row in record.RelatedTables[tableName])
+                                            {
+                                                <tr>
+                                                    @foreach (var colName in row.Keys)
+                                                    {
+                                                        <td>@FormatFieldValue(row[colName])</td>
+                                                    }
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+<style>
+    .report-config-panel {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .config-section {
+        margin-bottom: 25px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .config-section:last-child {
+        border-bottom: none;
+    }
+
+    .config-section h5 {
+        margin-bottom: 12px;
+        color: #495057;
+    }
+
+    .column-checkboxes {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 10px;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-weight: normal;
+    }
+
+    .filter-controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .report-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        font-size: 0.95rem;
+    }
+
+    .btn-primary {
+        background: #007bff;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #0056b3;
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+        background: #5a6268;
+    }
+
+    .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .report-preview {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+    }
+
+    .report-preview h4 {
+        margin-bottom: 8px;
+    }
+
+    .firearm-detail-section {
+        margin-bottom: 30px;
+        padding-bottom: 30px;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .firearm-detail-section:last-child {
+        border-bottom: none;
+    }
+
+    .detail-header {
+        margin-bottom: 20px;
+    }
+
+    .detail-header h5 {
+        margin-bottom: 15px;
+        color: #212529;
+        font-size: 1.3rem;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 12px;
+    }
+
+    .detail-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .field-label {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+
+    .field-value {
+        font-size: 1rem;
+        color: #212529;
+    }
+
+    .related-table-section {
+        margin-top: 20px;
+    }
+
+    .related-table-section h6 {
+        margin-bottom: 10px;
+        color: #495057;
+        font-size: 1.1rem;
+    }
+
+    .detail-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 15px;
+    }
+
+    .detail-table th,
+    .detail-table td {
+        padding: 8px 12px;
+        text-align: left;
+        border: 1px solid #dee2e6;
+    }
+
+    .detail-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .detail-table td {
+        font-size: 0.95rem;
+    }
+
+    /* Print-specific styles */
+    @@media print {
+        .report-config-panel,
+        .firearms-header-row,
+        .btn {
+            display: none !important;
+        }
+
+        .firearm-detail-section {
+            page-break-inside: avoid;
+        }
+
+        .related-table-section {
+            page-break-inside: avoid;
+        }
+    }
+</style>
+
+@code {
+    private bool isLoading = true;
+    private DocumentReportConfiguration? config;
+    private DocumentReportResult? reportResult;
+
+    protected override async Task OnInitializedAsync()
+    {
+        config = await ReportService.GetFirearmDetailConfigurationAsync();
+        isLoading = false;
+    }
+
+    private void ToggleRelatedTable(string tableName, bool isChecked)
+    {
+        if (isChecked && !config!.SelectedRelatedTables.Contains(tableName))
+        {
+            config.SelectedRelatedTables.Add(tableName);
+        }
+        else if (!isChecked && config!.SelectedRelatedTables.Contains(tableName))
+        {
+            config.SelectedRelatedTables.Remove(tableName);
+        }
+    }
+
+    private async Task GenerateReport()
+    {
+        if (config == null) return;
+        
+        reportResult = await ReportService.GenerateFirearmDetailReportAsync(config);
+    }
+
+    private void PrintReport()
+    {
+        // TODO: Implement print functionality using JavaScript window.print()
+    }
+
+    private async Task ExportToPdf()
+    {
+        // TODO: Implement PDF export
+    }
+
+    private void BackToReports()
+    {
+        Navigation.NavigateTo("/reports");
+    }
+
+    private string FormatFieldName(string fieldName)
+    {
+        // Convert PascalCase to Title Case with spaces
+        return System.Text.RegularExpressions.Regex.Replace(fieldName, "([A-Z])", " $1").Trim();
+    }
+
+    private string FormatFieldValue(object? value)
+    {
+        if (value == null) return "-";
+        
+        return value switch
+        {
+            DateTime dt => dt.ToShortDateString(),
+            decimal d => d.ToString("C"),
+            _ => value.ToString() ?? "-"
+        };
+    }
+}

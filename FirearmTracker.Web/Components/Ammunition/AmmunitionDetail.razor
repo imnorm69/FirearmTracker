@@ -1,0 +1,476 @@
+@page "/ammunition/detail/{Id:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Core.Enums
+@using FirearmTracker.Web.Services
+@using FirearmTracker.Web.Components
+@inject IAmmunitionRepository AmmunitionRepository
+@inject IAmmunitionTransactionRepository TransactionRepository
+@inject IFirearmAmmunitionLinkRepository LinkRepository
+@inject IFirearmRepository FirearmRepository
+@inject IDocumentRepository DocumentRepository
+@inject IconService IconService
+@inject NavigationManager Navigation
+
+<link href="css/ammunition.css" rel="stylesheet" />
+<link href="css/firearms-detail.css" rel="stylesheet" />
+
+@if (ammunition == null)
+{
+    <div class="loading">Loading...</div>
+}
+else
+{
+    <div class="detail-page">
+        <!-- Header Section -->
+        <div class="detail-header-compact">
+            <div class="header-left">
+                <h2>@ammunition.Caliber @(ammunition.Manufacturer != null ? $"- {ammunition.Manufacturer}" : "")</h2>
+                <div class="quick-info">
+                    @if (!string.IsNullOrEmpty(ammunition.BulletType))
+                    {
+                        <span class="info-badge">@ammunition.BulletType</span>
+                    }
+                    @if (ammunition.GrainWeight.HasValue)
+                    {
+                        <span class="info-badge">@ammunition.GrainWeight gr</span>
+                    }
+                    @if (!string.IsNullOrEmpty(ammunition.StorageLocation))
+                    {
+                        <span class="info-badge">📍 @ammunition.StorageLocation</span>
+                    }
+                </div>
+            </div>
+            <div class="header-actions">
+                <AuthorizeView Roles="Owner,Administrator,PowerUser">
+                    <button @onclick="EditAmmunition" class="btn-icon-only" title="Edit Details">
+                        <Icon Name="edit" />
+                    </button>
+                </AuthorizeView>
+        
+                <AuthorizeView Roles="Owner,Administrator,PowerUser">
+                    <button @onclick="DeleteAmmunition" class="btn-icon-only" title="Delete">
+                        <Icon Name="delete" />
+                    </button>
+                </AuthorizeView>
+
+                <button @onclick="BackToList" class="btn-icon-only" title="Back to List">
+                    <Icon Name="back" />
+                </button>
+            </div>
+        </div>
+
+        <!-- Key Info Cards -->
+        <div class="key-info-cards">
+            <div class="info-card">
+                <div class="info-card-label">Current Quantity</div>
+                <div class="info-card-value" style="color: @GetQuantityColor()">@ammunition.CurrentQuantity</div>
+            </div>
+            <div class="info-card">
+                <div class="info-card-label">Total Purchased</div>
+                <div class="info-card-value">@GetTotalPurchased()</div>
+            </div>
+            <div class="info-card">
+                <div class="info-card-label">Total Consumed</div>
+                <div class="info-card-value">@GetTotalConsumed()</div>
+            </div>
+            <div class="info-card">
+                <div class="info-card-label">Avg Cost/Round</div>
+                <div class="info-card-value">@GetAverageCost()</div>
+            </div>
+        </div>
+
+        <!-- Main Content Area with Sidebar Tabs -->
+        <div class="content-with-sidebar">
+            <!-- Sidebar Navigation -->
+            <div class="sidebar-tabs">
+                <button class="tab-button @(selectedTab == "transactions" ? "active" : "")"
+                        @onclick='() => selectedTab = "transactions"'>
+                    <Icon Name="@IconService.GetTabIcon("transactions")" Size="small" />
+                    Transactions
+                </button>
+                <button class="tab-button @(selectedTab == "firearms" ? "active" : "")"
+                        @onclick='() => selectedTab = "firearms"'>
+                    <Icon Name="@IconService.GetTabIcon("firearms")" Size="small" />
+                    Linked Firearms
+                </button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                @if (selectedTab == "transactions")
+                {
+                    <div class="tab-pane">
+                        <div class="tab-header">
+                            <h3>Transactions</h3>
+                            <AuthorizeView Roles="Owner,Administrator,PowerUser">
+                            <div class="transaction-buttons">
+                                <!-- Purchase button -->
+                                <button class="btn-icon"
+                                        @onclick='() => Navigation.NavigateTo($"/ammunition/{Id}/purchase/add")'
+                                        title="Record Purchase">
+                                    <Icon Name="purchase" Size="small" />
+                                </button>
+
+                                <!-- Consumption button -->
+                                <button class="btn-icon"
+                                        @onclick='() => Navigation.NavigateTo($"/ammunition/{Id}/consumption/add")'
+                                        title="Record Manual Consumption">
+                                    <Icon Name="consumption" Size="small" />
+                                </button>
+
+                                <!-- Sale button -->
+                                <button class="btn-icon"
+                                        @onclick='() => Navigation.NavigateTo($"/ammunition/{Id}/sale/add")'
+                                        title="Record Sale">
+                                    <Icon Name="sale" Size="small" />
+                                </button>
+                            </div>
+                            </AuthorizeView>
+                        </div>
+
+                        @if (!transactions.Any())
+                        {
+                            <p class="no-activities">No transactions recorded yet.</p>
+                        }
+                        else
+                        {
+                            <table class="activity-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Type</th>
+                                        <th>Quantity</th>
+                                        <th>Price</th>
+                                        <th>$/rd</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var txn in transactions.OrderByDescending(t => t.TransactionDate))
+                                    {
+                                        <tr>
+                                            <td>@txn.TransactionDate.ToShortDateString()</td>
+                                            <td>
+                                                <Icon Name="@IconService.GetAmmunitionTransactionIcon(txn.TransactionType)" Size="small" />
+                                                @txn.TransactionType
+                                            </td>
+                                            <td class="@GetQuantityClass(txn)">
+                                                @GetQuantityDisplay(txn)
+                                            </td>
+                                            <td>@GetPriceDisplay(txn)</td>
+                                            <td>@GetPricePerRound(txn)</td>
+                                            <td>@(string.IsNullOrEmpty(txn.Notes) ? "-" : txn.Notes)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                }
+                else if (selectedTab == "firearms")
+                {
+                    <div class="tab-pane">
+                        <div class="tab-header">
+                            <h3>Linked Firearms</h3>
+                            <AuthorizeView Roles="Owner,Administrator,PowerUser">
+                                <button class="btn-icon-only" @onclick="() => showLinkFirearmDialog = true" title="Link Firearm">
+                                    <Icon Name="link" />
+                                </button>
+                            </AuthorizeView>
+                        </div>
+
+                        @if (!linkedFirearms.Any())
+                        {
+                            <p class="no-activities">No firearms linked to this ammunition yet.</p>
+                        }
+                        else
+                        {
+                            <table class="activity-table">
+                                <thead>
+                                    <tr>
+                                        <th>Manufacturer</th>
+                                        <th>Model</th>
+                                        <th>Type</th>
+                                        <th>Caliber</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var link in linkedFirearms)
+                                    {
+                                        <tr>
+                                            <td>@link.Firearm.Manufacturer</td>
+                                            <td>@link.Firearm.Model</td>
+                                            <td>@link.Firearm.FirearmType</td>
+                                            <td>@link.Firearm.Caliber</td>
+                                            <td class="action-buttons">
+                                                <button class="btn-icon-only" @onclick='() => Navigation.NavigateTo($"/firearms/detail/{link.FirearmId}")' title="View">
+                                                    <Icon Name="view" />
+                                                </button>
+                                                <AuthorizeView Roles="Owner,Administrator,PowerUser">
+                                                    <button class="btn-icon-only" @onclick="() => ConfirmUnlinkFirearm(link.Id)" title="Unlink">
+                                                        <Icon Name="unlink" />
+                                                    </button>
+                                                </AuthorizeView>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@if (showLinkFirearmDialog)
+{
+    <div class="confirmation-overlay">
+        <div class="confirmation-dialog">
+            <h4>Link Firearm to Ammunition</h4>
+
+            <div class="form-group">
+                <label>Select Firearm</label>
+                <select @bind="selectedFirearmId" class="form-control">
+                    <option value="0">-- Select Firearm --</option>
+                    @foreach (var firearm in availableFirearms)
+                    {
+                        <option value="@firearm.Id">@firearm.Manufacturer @firearm.Model (@firearm.Caliber)</option>
+                    }
+                </select>
+            </div>
+
+            @if (!string.IsNullOrEmpty(linkErrorMessage))
+            {
+                <div class="alert alert-error">
+                    @linkErrorMessage
+                </div>
+            }
+
+            <div class="confirmation-actions">
+                <button @onclick="LinkFirearm" class="btn-icon-only" title="Link">
+            <Icon Name="link" />
+        </button>
+                <button @onclick="CancelLinkFirearm" class="btn-icon-only" title="Cancel">
+            <Icon Name="back" />
+        </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showUnlinkConfirmation)
+{
+    <div class="confirmation-overlay">
+        <div class="confirmation-dialog">
+            <h4>Unlink Firearm</h4>
+            <p>Are you sure you want to unlink this firearm from this ammunition?</p>
+            <div class="confirmation-actions">
+                <button @onclick="UnlinkFirearm" class="btn-icon-only" title="Unlink">
+            <Icon Name="unlink" />
+        </button>
+                <button @onclick="CancelUnlinkFirearm" class="btn-icon-only" title="Cancel">
+            <Icon Name="back" />
+        </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Ammunition? ammunition;
+    private List<AmmunitionTransaction> transactions = new();
+    private List<FirearmAmmunitionLink> linkedFirearms = new();
+    private List<Firearm> availableFirearms = new();
+    private string selectedTab = "transactions";
+    private bool showLinkFirearmDialog = false;
+    private bool showUnlinkConfirmation = false;
+    private int selectedFirearmId = 0;
+    private int linkToDelete = 0;
+    private string linkErrorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ammunition = await AmmunitionRepository.GetByIdAsync(Id);
+        if (ammunition == null)
+        {
+            Navigation.NavigateTo("/ammunition");
+        }
+        else
+        {
+            await LoadData();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        transactions = await TransactionRepository.GetByAmmunitionIdAsync(Id);
+        linkedFirearms = await LinkRepository.GetByAmmunitionIdAsync(Id);
+        var allFirearms = await FirearmRepository.GetAllAsync();
+
+        // Only show firearms that aren't already linked and aren't deleted
+        var linkedFirearmIds = linkedFirearms.Select(l => l.FirearmId).ToList();
+        availableFirearms = allFirearms
+            .Where(f => !f.IsDeleted && !linkedFirearmIds.Contains(f.Id))
+            .ToList();
+    }
+
+    private string GetQuantityColor()
+    {
+        if (ammunition == null) return "#333";
+        if (ammunition.CurrentQuantity == 0) return "#dc3545";
+        if (ammunition.CurrentQuantity < 50) return "#ffc107";
+        return "#28a745";
+    }
+
+    private int GetTotalPurchased()
+    {
+        return transactions
+            .Where(t => t.TransactionType == AmmunitionTransactionType.Purchase)
+            .Sum(t => t.Quantity);
+    }
+
+    private int GetTotalConsumed()
+    {
+        return transactions
+            .Where(t => t.TransactionType != AmmunitionTransactionType.Purchase)
+            .Sum(t => t.Quantity);
+    }
+
+    private string GetAverageCost()
+    {
+        var purchases = transactions.Where(t => t.TransactionType == AmmunitionTransactionType.Purchase && t.PurchasePrice.HasValue).ToList();
+        if (!purchases.Any()) return "-";
+
+        var totalCost = purchases.Sum(t => t.PurchasePrice!.Value);
+        var totalQuantity = purchases.Sum(t => t.Quantity);
+
+        if (totalQuantity == 0) return "-";
+
+        var avgCost = totalCost / totalQuantity;
+        return $"${avgCost:F3}";
+    }
+
+
+    private string GetQuantityClass(AmmunitionTransaction txn)
+    {
+        return txn.TransactionType == AmmunitionTransactionType.Purchase ? "quantity-positive" : "quantity-negative";
+    }
+
+    private string GetQuantityDisplay(AmmunitionTransaction txn)
+    {
+        var prefix = txn.TransactionType == AmmunitionTransactionType.Purchase ? "+" : "-";
+        return $"{prefix}{txn.Quantity}";
+    }
+
+    private string GetPriceDisplay(AmmunitionTransaction txn)
+    {
+        if (txn.TransactionType == AmmunitionTransactionType.Purchase && txn.PurchasePrice.HasValue)
+            return txn.PurchasePrice.Value.ToString("C");
+        if (txn.TransactionType == AmmunitionTransactionType.Sale && txn.SalePrice.HasValue)
+            return txn.SalePrice.Value.ToString("C");
+        return "-";
+    }
+
+    private string GetPricePerRound(AmmunitionTransaction txn)
+    {
+        if (txn.Quantity == 0) return "-";
+
+        if (txn.TransactionType == AmmunitionTransactionType.Purchase && txn.PurchasePrice.HasValue)
+            return $"${(txn.PurchasePrice.Value / txn.Quantity):F3}";
+
+        if (txn.TransactionType == AmmunitionTransactionType.Sale && txn.SalePrice.HasValue)
+            return $"${(txn.SalePrice.Value / txn.Quantity):F3}";
+
+        return "-";
+    }
+
+    private void EditAmmunition()
+    {
+        Navigation.NavigateTo($"/ammunition/edit/{Id}");
+    }
+
+    private async Task DeleteAmmunition()
+    {
+        if (ammunition != null)
+        {
+            ammunition.IsDeleted = true;
+            ammunition.ModifiedDate = DateTime.UtcNow;
+            await AmmunitionRepository.UpdateAsync(ammunition);
+            Navigation.NavigateTo("/ammunition");
+        }
+    }
+
+    private void BackToList()
+    {
+        Navigation.NavigateTo("/ammunition");
+    }
+
+    private async Task LinkFirearm()
+    {
+        linkErrorMessage = string.Empty;
+
+        if (selectedFirearmId == 0)
+        {
+            linkErrorMessage = "Please select a firearm";
+            return;
+        }
+
+        try
+        {
+            var link = new FirearmAmmunitionLink
+            {
+                FirearmId = selectedFirearmId,
+                AmmunitionId = Id,
+                CreatedDate = DateTime.UtcNow,
+                IsDeleted = false,
+                Notes = string.Empty
+            };
+
+            await LinkRepository.AddAsync(link);
+            await LoadData();
+            CancelLinkFirearm();
+        }
+        catch (Exception ex)
+        {
+            linkErrorMessage = $"Error linking firearm: {ex.Message}";
+        }
+    }
+
+    private void CancelLinkFirearm()
+    {
+        showLinkFirearmDialog = false;
+        selectedFirearmId = 0;
+        linkErrorMessage = string.Empty;
+    }
+
+    private void ConfirmUnlinkFirearm(int linkId)
+    {
+        linkToDelete = linkId;
+        showUnlinkConfirmation = true;
+    }
+
+    private async Task UnlinkFirearm()
+    {
+        if (linkToDelete > 0)
+        {
+            await LinkRepository.DeleteAsync(linkToDelete);
+            await LoadData();
+            CancelUnlinkFirearm();
+        }
+    }
+
+    private void CancelUnlinkFirearm()
+    {
+        showUnlinkConfirmation = false;
+        linkToDelete = 0;
+    }
+}

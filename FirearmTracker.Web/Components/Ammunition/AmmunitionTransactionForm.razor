@@ -1,0 +1,145 @@
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Core.Enums
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Web.Components
+@inject IAmmunitionTransactionRepository TransactionRepository
+@inject IAmmunitionRepository AmmunitionRepository
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<link href="css/firearms.css" rel="stylesheet" />
+
+<div class="form-paper">
+    <h4>@GetFormTitle()</h4>
+
+    <div class="form-group">
+        <label>Transaction Date *</label>
+        <input type="date" @bind="transaction.TransactionDate" class="form-control" />
+    </div>
+
+    <div class="form-group">
+        <label>Quantity *</label>
+        <input type="number" @bind="transaction.Quantity" class="form-control" placeholder="Number of rounds" />
+    </div>
+
+    @if (TransactionType == AmmunitionTransactionType.Purchase)
+    {
+        <div class="form-group">
+            <label>Purchase Price (Total Cost)</label>
+            <input type="number" step="0.01" @bind="transaction.PurchasePrice" class="form-control" placeholder="Total cost for all rounds" />
+        </div>
+    }
+
+    @if (TransactionType == AmmunitionTransactionType.Sale)
+    {
+        <div class="form-group">
+            <label>Sale Price</label>
+            <input type="number" step="0.01" @bind="transaction.SalePrice" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Buyer Name</label>
+            <input type="text" @bind="transaction.BuyerName" class="form-control" />
+        </div>
+    }
+
+    <div class="form-group">
+        <label>Notes</label>
+        <textarea @bind="transaction.Notes" class="form-control" rows="4"></textarea>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-error">
+            @errorMessage
+        </div>
+    }
+
+    <div class="form-actions">
+        <button @onclick="SaveTransaction" class="btn-icon-only" title="Save">
+            <Icon Name="save" />
+        </button>
+        <button @onclick="Cancel" class="btn-icon-only" title="Cancel">
+            <Icon Name="back" />
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int AmmunitionId { get; set; }
+
+    [Parameter]
+    public AmmunitionTransactionType TransactionType { get; set; }
+
+    [Parameter]
+    public EventCallback OnSaved { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancelled { get; set; }
+
+    private AmmunitionTransaction transaction = new();
+    private Ammunition? ammunition;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ammunition = await AmmunitionRepository.GetByIdAsync(AmmunitionId);
+        
+        transaction = new AmmunitionTransaction
+        {
+            AmmunitionId = AmmunitionId,
+            TransactionType = TransactionType,
+            TransactionDate = DateTime.UtcNow,
+            CreatedDate = DateTime.UtcNow,
+            IsDeleted = false
+        };
+    }
+
+    private string GetFormTitle()
+    {
+        return TransactionType switch
+        {
+            AmmunitionTransactionType.Purchase => "Record Ammunition Purchase",
+            AmmunitionTransactionType.ManualConsumption => "Record Ammunition Consumption",
+            AmmunitionTransactionType.Sale => "Record Ammunition Sale",
+            _ => "Add Transaction"
+        };
+    }
+
+    private async Task SaveTransaction()
+    {
+        errorMessage = string.Empty;
+
+        if (transaction.Quantity <= 0)
+        {
+            errorMessage = "Quantity must be greater than 0";
+            return;
+        }
+
+        // Validate sufficient quantity for consumption/sale
+        if (TransactionType != AmmunitionTransactionType.Purchase)
+        {
+            if (ammunition != null && ammunition.CurrentQuantity < transaction.Quantity)
+            {
+                errorMessage = $"Insufficient quantity. Current stock: {ammunition.CurrentQuantity}";
+                return;
+            }
+        }
+
+        try
+        {
+            await TransactionRepository.AddAsync(transaction);
+            await OnSaved.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving transaction: {ex.Message}";
+        }
+    }
+
+    private async Task Cancel()
+    {
+        await OnCancelled.InvokeAsync();
+    }
+}

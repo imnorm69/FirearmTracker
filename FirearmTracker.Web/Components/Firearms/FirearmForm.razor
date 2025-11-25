@@ -1,0 +1,131 @@
+﻿@page "/firearms/add"
+@page "/firearms/edit/{Id:int}"
+@attribute [Authorize(Roles = "Owner,Administrator,PowerUser")]
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Core.Enums
+@using FirearmTracker.Web.Services
+@using FirearmTracker.Web.Components
+@inject IFirearmRepository FirearmRepository
+@inject NavigationManager Navigation
+@inject CaliberService CaliberService
+@rendermode InteractiveServer
+
+<link href="css/firearms.css" rel="stylesheet" />
+
+<div class="form-container">
+    <h3 class="firearms-header">@(Id.HasValue ? "Edit" : "Add") Firearm</h3>
+
+    <div class="form-paper">
+        <div class="form-group">
+            <label>Manufacturer *</label>
+            <input type="text" @bind="firearm.Manufacturer" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Firearm Type *</label>
+            <select @bind="firearm.FirearmType" class="form-control">
+                @foreach (FirearmType type in Enum.GetValues(typeof(FirearmType)))
+                {
+                    <option value="@type">@type.ToString()</option>
+                }
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Model</label>
+            <input type="text" @bind="firearm.Model" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Caliber</label>
+            <input type="text"
+                   @bind="firearm.Caliber"
+                   @bind:event="oninput"
+                   @onchange="OnCaliberChanged"
+                   list="caliber-list"
+                   class="form-control"
+                   placeholder="Select or type caliber" />
+            <datalist id="caliber-list">
+                @foreach (var caliber in availableCalibers)
+                {
+                    <option value="@caliber">@caliber</option>
+                }
+            </datalist>
+        </div>
+
+        <div class="form-group">
+            <label>Serial Number</label>
+            <input type="text" @bind="firearm.SerialNumber" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea @bind="firearm.Notes" class="form-control" rows="4"></textarea>
+        </div>
+
+        <div class="form-actions">
+            <button @onclick="SaveFirearm" class="btn-icon-only" title="Save">
+            <Icon Name="save" />
+        </button>
+            <button @onclick="Cancel" class="btn-icon-only" title="Cancel">
+            <Icon Name="back" />
+        </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Firearm firearm = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue)
+        {
+            var existing = await FirearmRepository.GetByIdAsync(Id.Value);
+            if (existing != null)
+            {
+                firearm = existing;
+            }
+        }
+    }
+
+    private async Task SaveFirearm()
+    {
+        if (Id.HasValue)
+        {
+            await FirearmRepository.UpdateAsync(firearm);
+        }
+        else
+        {
+            await FirearmRepository.AddAsync(firearm);
+        }
+
+        Navigation.NavigateTo("/firearms");
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/firearms");
+    }
+
+    private List<string> availableCalibers = new();
+
+    protected override void OnInitialized()
+    {
+        availableCalibers = CaliberService.GetAllCalibers();
+        base.OnInitialized();
+    }
+
+    private void OnCaliberChanged()
+    {
+        if (!string.IsNullOrWhiteSpace(firearm.Caliber))
+        {
+            CaliberService.AddCustomCaliber(firearm.Caliber);
+            availableCalibers = CaliberService.GetAllCalibers();
+        }
+    }
+}

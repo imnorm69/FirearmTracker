@@ -1,0 +1,141 @@
+﻿@page "/setup"
+@using FirearmTracker.Core.Interfaces
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using System.Security.Claims
+@using System.ComponentModel.DataAnnotations
+@inject FirearmTracker.Core.Interfaces.IAuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject IHttpContextAccessor HttpContextAccessor
+
+<div class="container" style="max-width: 500px; margin-top: 100px;">
+    <div class="card">
+        <div class="card-header">
+            <h3>First Time Setup</h3>
+        </div>
+        <div class="card-body">
+            <p>Welcome to Firearm Tracker! Please create your administrator account.</p>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+
+            <EditForm Model="@setupModel" OnValidSubmit="@HandleSetup" FormName="setupForm">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <InputText id="username" class="form-control" @bind-Value="setupModel.Username" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <InputText id="email" type="email" class="form-control" @bind-Value="setupModel.Email" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <InputText id="password" type="password" class="form-control" @bind-Value="setupModel.Password" />
+                    <small class="form-text text-muted">Minimum 8 characters</small>
+                </div>
+
+                <div class="mb-3">
+                    <label for="confirmPassword" class="form-label">Confirm Password</label>
+                    <InputText id="confirmPassword" type="password" class="form-control" @bind-Value="setupModel.ConfirmPassword" />
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100" disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    Create Admin Account
+                </button>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private SetupModel setupModel { get; set; } = new();
+
+    private string? errorMessage;
+    private bool isLoading;
+
+    private async Task HandleSetup()
+    {
+        errorMessage = null;
+        isLoading = true;
+
+        try
+        {
+            if (setupModel.Password != setupModel.ConfirmPassword)
+            {
+                errorMessage = "Passwords do not match.";
+                isLoading = false;
+                return;
+            }
+
+            var user = await AuthService.RegisterFirstAdminAsync(
+                setupModel.Username,
+                setupModel.Email,
+                setupModel.Password
+            );
+
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
+            };
+
+            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var principal = new ClaimsPrincipal(identity);
+
+            var httpContext = HttpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                await httpContext.SignInAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme,
+                    principal,
+                    new AuthenticationProperties
+                    {
+                        IsPersistent = true,
+                        ExpiresUtc = DateTimeOffset.UtcNow.AddDays(7)
+                    });
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Setup failed: {ex.Message}";
+            isLoading = false;
+            return;
+        }
+
+        // Navigate outside try-catch since it throws NavigationException
+        Navigation.NavigateTo("/", true);
+    }
+
+    private class SetupModel
+    {
+        [Required]
+        [MinLength(3, ErrorMessage = "Username must be at least 3 characters.")]
+        public string Username { get; set; } = string.Empty;
+
+        [Required]
+        [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required]
+        [MinLength(8, ErrorMessage = "Password must be at least 8 characters.")]
+        public string Password { get; set; } = string.Empty;
+
+        [Required]
+        [Compare(nameof(Password), ErrorMessage = "Passwords do not match.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

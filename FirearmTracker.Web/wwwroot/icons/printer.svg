@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+     viewBox="0 0 24 24">
+
+  <!-- Outer rounded-square border -->
+  <rect x="1" y="1" width="22" height="22" rx="4" ry="4"
+        fill="none" stroke="#4b5563" stroke-width="1.5" />
+
+  <!-- Printer body (medium green outline, white fill)
+       - Left/right/bottom margin: 3px from border
+       - Width: ~3/4 of inner width (16 of 22)
+       - Height: ~1/2 of inner height (11 of 22), shifted toward bottom -->
+  <rect x="4" y="9" width="16" height="11"
+        fill="#ffffff"
+        stroke="#16a34a" stroke-width="1.3"
+        stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Page (gray outline, white fill)
+       - Slightly narrower than body (12px wide), centered
+       - Bottom touches top of printer body
+       - Top margin: same 3px as body bottom margin -->
+  <rect x="6" y="4" width="12" height="5"
+        fill="#ffffff"
+        stroke="#9ca3af" stroke-width="1.2"
+        stroke-linecap="round" stroke-linejoin="round" />
+</svg>

@@ -1,0 +1,132 @@
+﻿@page "/firearms"
+@attribute [Authorize]
+@attribute [Authorize]
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Web.Components
+@using FirearmTracker.Web.Services
+@inject IFirearmRepository FirearmRepository
+@inject FirearmOwnershipService OwnershipService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<link href="css/firearms.css" rel="stylesheet" />
+
+<div class="firearms-container">
+    <h3 class="firearms-header">Firearms Collection</h3>
+    <div class="firearms-header-row">
+        <AuthorizeView Roles="Owner,Administrator,PowerUser">
+            <button @onclick='() => Navigation.NavigateTo("/firearms/add")'
+                    class="btn-icon-only"
+                    title="Add Firearm">
+                <Icon Name="add" />
+            </button>
+        </AuthorizeView>
+
+
+        <div class="filter-toggle-container">
+            <label class="filter-label">Include Sold</label>
+            <label class="toggle-switch">
+                <input type="checkbox" @bind="includeSold" @bind:after="LoadFirearms" />
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+
+        <div class="filter-toggle-container">
+            <label class="filter-label">Include Deleted</label>
+            <label class="toggle-switch">
+                <input type="checkbox" @bind="includeDeleted" @bind:after="LoadFirearms" />
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+
+    </div>
+
+    @if (firearms == null)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!firearms.Any())
+    {
+        <div class="alert alert-info">No firearms in your collection yet.</div>
+    }
+    else
+    {
+        <table class="firearms-table">
+            <thead>
+                <tr>
+                    <th>Manufacturer</th>
+                    <th>Model</th>
+                    <th>Type</th>
+                    <th>Caliber</th>
+                    <th>Serial Number</th>
+                    <th></th> <!-- Empty header for status column -->
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in firearms)
+                {
+                    <tr style="cursor: pointer;"
+                        class="@(IsFirearmSold(item) ? "firearm-sold" : "")"
+                        @onclick='() => Navigation.NavigateTo($"/firearms/detail/{item.Id}")'>
+                        <td>@item.Manufacturer</td>
+                        <td>@item.Model</td>
+                        <td>@item.FirearmType</td>
+                        <td>@item.Caliber</td>
+                        <td>@item.SerialNumber</td>
+                        <td class="status-column">
+                            @if (IsFirearmSold(item))
+                            {
+                                <span class="sold-badge">SOLD</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<Firearm>? firearms;
+    private bool includeSold = false;
+    private Dictionary<int, bool> firearmSoldStatus = new Dictionary<int, bool>();
+    private bool includeDeleted = false;  // ✅ New toggle
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFirearms();
+    }
+
+    private bool IsFirearmSold(Firearm firearm)
+    {
+        return firearm.IsDeleted;
+    }
+
+    private async Task LoadFirearms()
+    {
+        var allFirearms = await FirearmRepository.GetAllAsync();
+
+        // ✅ First filter by IsDeleted (the deleted toggle)
+        var firearmsFilteredByDeleted = includeDeleted
+            ? allFirearms
+            : allFirearms.Where(f => !f.IsDeleted).ToList();
+
+        // ✅ Determine sold status for all firearms using the service
+        firearmSoldStatus.Clear();
+        foreach (var firearm in firearmsFilteredByDeleted)
+        {
+            var isSold = await OwnershipService.IsFirearmSoldAsync(firearm.Id);
+            firearmSoldStatus[firearm.Id] = isSold;
+        }
+
+        // ✅ Then filter by sold status (the sold toggle)
+        firearms = includeSold
+            ? firearmsFilteredByDeleted
+            : firearmsFilteredByDeleted
+                .Where(f => !firearmSoldStatus.ContainsKey(f.Id) ||
+                           !firearmSoldStatus[f.Id])
+                .ToList();
+    }
+
+}

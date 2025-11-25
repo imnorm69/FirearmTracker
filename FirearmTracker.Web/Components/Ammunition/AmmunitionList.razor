@@ -1,0 +1,88 @@
+@page "/ammunition"
+@attribute [Authorize]
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Core.Enums
+@using FirearmTracker.Web.Components
+@inject IAmmunitionRepository AmmunitionRepository
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<link href="css/ammunition.css" rel="stylesheet" />
+
+<div class="ammunition-container">
+    <h3 class="ammunition-header">Ammunition Inventory</h3>
+    
+    <AuthorizeView Roles="Owner,Administrator,PowerUser">
+        <div class="ammunition-header-row">
+            <button @onclick='() => Navigation.NavigateTo("/ammunition/add")' class="btn-icon-only" title="Add Ammunition">
+                <Icon Name="add" />
+            </button>
+        </div>
+    </AuthorizeView>
+
+    @if (ammunition == null)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!ammunition.Any())
+    {
+        <div class="alert alert-info">No ammunition in your inventory yet.</div>
+    }
+    else
+    {
+        <table class="ammunition-table">
+            <thead>
+                <tr>
+                    <th>Caliber</th>
+                    <th>Manufacturer</th>
+                    <th>Bullet Type</th>
+                    <th>Grain</th>
+                    <th>Qty on Hand</th>
+                    <th>Storage Location</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in ammunition)
+                {
+                    <tr style="cursor: pointer;"
+                        class="@(item.CurrentQuantity <= 0 ? "ammunition-depleted" : "")"
+                        @onclick='() => Navigation.NavigateTo($"/ammunition/detail/{item.Id}")'>
+                        <td>@item.Caliber</td>
+                        <td>@(item.Manufacturer ?? "-")</td>
+                        <td>@(item.BulletType ?? "-")</td>
+                        <td>@(item.GrainWeight?.ToString() ?? "-")</td>
+                        <td class="quantity-column">
+                            <span class="@GetQuantityClass(item.CurrentQuantity)">
+                                @item.CurrentQuantity
+                            </span>
+                        </td>
+                        <td>@(item.StorageLocation ?? "-")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<Ammunition>? ammunition;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAmmunition();
+    }
+
+    private async Task LoadAmmunition()
+    {
+        var allAmmunition = await AmmunitionRepository.GetAllAsync();
+        ammunition = allAmmunition.Where(a => !a.IsDeleted).ToList();
+    }
+
+    private string GetQuantityClass(int quantity)
+    {
+        if (quantity == 0) return "quantity-zero";
+        if (quantity < 50) return "quantity-low";
+        return "quantity-normal";
+    }
+}

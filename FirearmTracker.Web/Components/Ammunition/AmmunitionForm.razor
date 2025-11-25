@@ -1,0 +1,156 @@
+@page "/ammunition/add"
+@page "/ammunition/edit/{Id:int}"
+@attribute [Authorize(Roles = "Owner,Administrator,PowerUser")]
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Core.Enums
+@using FirearmTracker.Web.Components
+@inject IAmmunitionRepository AmmunitionRepository
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<link href="css/firearms.css" rel="stylesheet" />
+
+<div class="form-container">
+    <h3 class="firearms-header">@(Id.HasValue ? "Edit" : "Add") Ammunition</h3>
+    
+    <div class="form-paper">
+        <div class="form-group">
+            <label>Caliber/Gauge *</label>
+            <input type="text" @bind="ammunition.Caliber" class="form-control" placeholder="e.g., 9mm, .45 ACP, 12 Gauge" />
+        </div>
+
+        <div class="form-group">
+            <label>Manufacturer</label>
+            <input type="text" @bind="ammunition.Manufacturer" class="form-control" placeholder="e.g., Federal, Winchester" />
+        </div>
+
+        <div class="form-group">
+            <label>Bullet Type</label>
+            <input type="text" @bind="ammunition.BulletType" class="form-control" placeholder="e.g., FMJ, JHP, Buckshot" />
+        </div>
+
+        <div class="form-group">
+            <label>Grain Weight</label>
+            <input type="number" @bind="ammunition.GrainWeight" class="form-control" placeholder="e.g., 115, 124, 147" />
+        </div>
+
+        <div class="form-group">
+            <label>Lot Number</label>
+            <input type="text" @bind="ammunition.LotNumber" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Storage Location</label>
+            @if (storageLocations.Any())
+            {
+                <input type="text" 
+                       @bind="ammunition.StorageLocation" 
+                       list="storage-locations" 
+                       class="form-control" 
+                       placeholder="e.g., Ammo Can #1, Safe Shelf 2" />
+                <datalist id="storage-locations">
+                    @foreach (var location in storageLocations)
+                    {
+                        <option value="@location" />
+                    }
+                </datalist>
+            }
+            else
+            {
+                <input type="text" @bind="ammunition.StorageLocation" class="form-control" placeholder="e.g., Ammo Can #1, Safe Shelf 2" />
+            }
+        </div>
+
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea @bind="ammunition.Notes" class="form-control" rows="4"></textarea>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-error">
+                @errorMessage
+            </div>
+        }
+
+        <div class="form-actions">
+            <button @onclick="SaveAmmunition" class="btn-icon-only" title="Save">
+            <Icon Name="save" />
+        </button>
+            <button @onclick="Cancel" class="btn-icon-only" title="Cancel">
+            <Icon Name="back" />
+        </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Ammunition ammunition = new();
+    private List<string> storageLocations = new();
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        storageLocations = await AmmunitionRepository.GetDistinctStorageLocationsAsync();
+
+        if (Id.HasValue)
+        {
+            var existing = await AmmunitionRepository.GetByIdAsync(Id.Value);
+            if (existing != null)
+            {
+                ammunition = existing;
+            }
+        }
+        else
+        {
+            ammunition = new Ammunition
+            {
+                CreatedDate = DateTime.UtcNow,
+                IsDeleted = false,
+                Notes = string.Empty,
+                Caliber = string.Empty
+            };
+        }
+    }
+
+    private async Task SaveAmmunition()
+    {
+        errorMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(ammunition.Caliber))
+        {
+            errorMessage = "Caliber/Gauge is required";
+            return;
+        }
+
+        try
+        {
+            if (Id.HasValue)
+            {
+                ammunition.ModifiedDate = DateTime.UtcNow;
+                await AmmunitionRepository.UpdateAsync(ammunition);
+            }
+            else
+            {
+                ammunition.CreatedDate = DateTime.UtcNow;
+                ammunition.IsDeleted = false;
+                await AmmunitionRepository.AddAsync(ammunition);
+            }
+
+            Navigation.NavigateTo("/ammunition");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving ammunition: {ex.Message}";
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/ammunition");
+    }
+}

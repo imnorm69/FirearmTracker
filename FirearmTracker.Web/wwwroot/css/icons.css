@@ -1,0 +1,68 @@
+/* Icon Component Styles */
+.icon {
+    display: inline-block;
+    vertical-align: middle;
+    width: 24px;
+    height: 24px;
+}
+
+.icon-small {
+    width: 18px;
+    height: 18px;
+}
+
+.icon-medium {
+    width: 24px;
+    height: 24px;
+}
+
+.icon-large {
+    width: 48px;
+    height: 48px;
+}
+
+/* Icon in buttons */
+.btn .icon {
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.btn-icon .icon {
+    margin-right: 0;
+}
+
+/* Icon in tabs */
+.tab-button .icon {
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+/* Icon in tables */
+.activity-table .icon {
+    margin-right: 6px;
+}
+
+/* Timeline icons */
+.timeline-icon-h .icon {
+    display: block;
+    margin: 0 auto;
+}
+
+/* Icon-only buttons */
+.btn-icon-only {
+    background: transparent;
+    border: none;
+    padding: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+    .btn-icon-only:hover {
+        background: rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-icon-only .icon {
+        width: 32px;
+        height: 32px;
+    }

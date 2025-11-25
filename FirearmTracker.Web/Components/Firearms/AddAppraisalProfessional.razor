@@ -1,0 +1,202 @@
+﻿@page "/firearms/{FirearmId:int}/appraisal-professional/add"
+@page "/firearms/{FirearmId:int}/appraisal-professional/{ActivityId:int}/edit"
+@attribute [Authorize(Roles = "Owner,Administrator,PowerUser")]
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Core.Enums
+@using System.Text.Json
+@using FirearmTracker.Web.Components
+@inject IActivityRepository ActivityRepository
+@inject IFirearmRepository FirearmRepository
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<link href="css/firearms.css" rel="stylesheet" />
+
+<div class="form-container">
+    <h3 class="firearms-header">@(isEditMode ? "Edit" : "Record") Professional Appraisal</h3>
+
+    @if (firearm != null)
+    {
+        <p><strong>Firearm:</strong> @firearm.Manufacturer @firearm.Model</p>
+    }
+
+    <div class="form-paper">
+        <div class="form-group">
+            <label>Date *</label>
+            <input type="date" @bind="activityDate" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Estimated Value *</label>
+            <input type="number" step="0.01" @bind="estimatedValue" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Appraiser Name *</label>
+            <input type="text" @bind="appraisalData.AppraiserName" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Business Name</label>
+            <input type="text" @bind="appraisalData.BusinessName" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Address</label>
+            <input type="text" @bind="appraisalData.Address" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Phone</label>
+            <input type="tel" @bind="appraisalData.Phone" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" @bind="appraisalData.Email" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Credentials</label>
+            <input type="text" @bind="appraisalData.Credentials" class="form-control" placeholder="e.g., Certified Gun Appraiser" />
+        </div>
+
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea @bind="notes" class="form-control" rows="4"></textarea>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-error">
+                @errorMessage
+            </div>
+        }
+
+        <div class="form-actions">
+            <button @onclick="SaveAppraisal" class="btn-icon-only" title="Save">
+            <Icon Name="save" />
+        </button>
+            <button @onclick="Cancel" class="btn-icon-only" title="Cancel">
+            <Icon Name="back" />
+        </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int FirearmId { get; set; }
+
+    [Parameter]
+    public int? ActivityId { get; set; }
+
+    private Firearm? firearm;
+    private Activity? existingActivity;
+    private DateTime? activityDate;
+    private decimal? estimatedValue;
+    private string notes = string.Empty;
+    private string errorMessage = string.Empty;
+    private AppraisalProfessionalActivityData appraisalData = new();
+    private bool isEditMode => ActivityId.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        firearm = await FirearmRepository.GetByIdAsync(FirearmId);
+        if (firearm == null)
+        {
+            Navigation.NavigateTo("/firearms");
+            return;
+        }
+
+        if (isEditMode)
+        {
+            existingActivity = await ActivityRepository.GetByIdAsync(ActivityId!.Value);
+            if (existingActivity == null || existingActivity.ActivityType != ActivityType.AppraisalProfessional)
+            {
+                Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+                return;
+            }
+
+            activityDate = existingActivity.ActivityDate;
+            estimatedValue = existingActivity.Amount;
+            notes = existingActivity.Notes;
+
+            if (!string.IsNullOrEmpty(existingActivity.AdditionalData))
+            {
+                try
+                {
+                    appraisalData = JsonSerializer.Deserialize<AppraisalProfessionalActivityData>(existingActivity.AdditionalData) ?? new();
+                }
+                catch
+                {
+                    appraisalData = new();
+                }
+            }
+        }
+    }
+
+    private async Task SaveAppraisal()
+    {
+        errorMessage = string.Empty;
+
+        if (!activityDate.HasValue)
+        {
+            errorMessage = "Date is required";
+            return;
+        }
+
+        if (!estimatedValue.HasValue || estimatedValue.Value <= 0)
+        {
+            errorMessage = "Estimated Value is required and must be greater than zero";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(appraisalData.AppraiserName))
+        {
+            errorMessage = "Appraiser Name is required";
+            return;
+        }
+
+        try
+        {
+            if (isEditMode && existingActivity != null)
+            {
+                existingActivity.ActivityDate = activityDate.Value;
+                existingActivity.Amount = estimatedValue.Value;
+                existingActivity.Description = $"Professional appraisal by {appraisalData.AppraiserName}: {estimatedValue.Value:C}";
+                existingActivity.Notes = notes;
+                existingActivity.AdditionalData = JsonSerializer.Serialize(appraisalData);
+
+                await ActivityRepository.UpdateAsync(existingActivity);
+            }
+            else
+            {
+                var activity = new Activity
+                {
+                    FirearmId = FirearmId,
+                    ActivityType = ActivityType.AppraisalProfessional,
+                    ActivityDate = activityDate.Value,
+                    Amount = estimatedValue.Value,
+                    Description = $"Professional appraisal by {appraisalData.AppraiserName}: {estimatedValue.Value:C}",
+                    Notes = notes,
+                    AdditionalData = JsonSerializer.Serialize(appraisalData)
+                };
+
+                await ActivityRepository.AddAsync(activity);
+            }
+
+            Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving appraisal: {ex.Message}";
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+    }
+}

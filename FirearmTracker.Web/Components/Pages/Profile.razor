@@ -1,0 +1,246 @@
+﻿@page "/profile"
+@rendermode InteractiveServer
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Web.Services
+@attribute [Authorize]
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IUserRepository UserRepository
+@inject IAuthenticationService AuthenticationService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<h3>My Profile</h3>
+
+@if (currentUser == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-3 text-center">
+            <img src="/avatar/@currentUser.Id?t=@avatarTimestamp" alt="Avatar" class="mb-3" style="width: 128px; height: 128px; object-fit: cover;" />
+            <div class="mb-3 d-flex flex-column gap-2">
+                <label for="avatarUpload" class="btn btn-primary btn-sm">
+                    <Icon Name="upload" /> Change Avatar
+                </label>
+                <InputFile id="avatarUpload" OnChange="HandleAvatarUpload" accept="image/*" style="display: none;" />
+
+                @if (currentUser.AvatarImage != null)
+                {
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="ClearAvatar">
+                        <Icon Name="delete" /> Clear Avatar
+                    </button>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(avatarMessage))
+            {
+                <div class="alert alert-info">@avatarMessage</div>
+            }
+        </div>
+
+        <div class="col-md-9">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="alert alert-success">@successMessage</div>
+            }
+
+            <div class="mb-3">
+                <label class="form-label">Username</label>
+                <input type="text" class="form-control" value="@currentUser.Username" disabled />
+            </div>
+
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" id="email" class="form-control" @bind="email" />
+            </div>
+
+            <hr />
+
+            <h5>Change Password</h5>
+            <div class="mb-3">
+                <label for="currentPassword" class="form-label">Current Password</label>
+                <input type="password" id="currentPassword" class="form-control" @bind="currentPassword" />
+            </div>
+
+            <div class="mb-3">
+                <label for="newPassword" class="form-label">New Password</label>
+                <input type="password" id="newPassword" class="form-control" @bind="newPassword" />
+            </div>
+
+            <div class="mb-3">
+                <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                <input type="password" id="confirmPassword" class="form-control" @bind="confirmPassword" />
+            </div>
+
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary" @onclick="SaveProfile" disabled="@isSaving">
+                    @if (isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    <Icon Name="save" /> Save Changes
+                </button>
+                <button class="btn btn-secondary" @onclick="Cancel">
+                    <Icon Name="cancel" /> Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private User? currentUser;
+    private string email = string.Empty;
+    private string currentPassword = string.Empty;
+    private string newPassword = string.Empty;
+    private string confirmPassword = string.Empty;
+    private string? errorMessage;
+    private string? successMessage;
+    private string? avatarMessage;
+    private bool isSaving;
+    private long avatarTimestamp = DateTime.UtcNow.Ticks;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var username = authState.User.Identity?.Name;
+
+        if (!string.IsNullOrEmpty(username))
+        {
+            currentUser = await UserRepository.GetByUsernameAsync(username);
+            if (currentUser != null)
+            {
+                email = currentUser.Email;
+            }
+        }
+    }
+
+    private async Task HandleAvatarUpload(InputFileChangeEventArgs e)
+    {
+        avatarMessage = null;
+        errorMessage = null;
+
+        var file = e.File;
+
+        if (file.Size > 2 * 1024 * 1024) // 2MB limit
+        {
+            errorMessage = "Avatar file must be less than 2MB.";
+            return;
+        }
+
+        try
+        {
+            // Read the file
+            using var memoryStream = new MemoryStream();
+            await file.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024).CopyToAsync(memoryStream);
+
+            // For now, just store as-is (we'll add image processing in the next step)
+            currentUser!.AvatarImage = memoryStream.ToArray();
+            currentUser.AvatarContentType = file.ContentType;
+
+            await UserRepository.UpdateAsync(currentUser);
+
+            avatarTimestamp = DateTime.UtcNow.Ticks;
+            avatarMessage = "Avatar updated successfully!";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error uploading avatar: {ex.Message}";
+        }
+    }
+
+    private async Task SaveProfile()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        // Validate password change if attempting
+        if (!string.IsNullOrEmpty(newPassword))
+        {
+            if (string.IsNullOrEmpty(currentPassword))
+            {
+                errorMessage = "Current password is required to change password.";
+                return;
+            }
+
+            if (newPassword.Length < 8)
+            {
+                errorMessage = "New password must be at least 8 characters.";
+                return;
+            }
+
+            if (newPassword != confirmPassword)
+            {
+                errorMessage = "New passwords do not match.";
+                return;
+            }
+
+            // Verify current password
+            if (!AuthenticationService.VerifyPassword(currentPassword, currentUser!.PasswordHash))
+            {
+                errorMessage = "Current password is incorrect.";
+                return;
+            }
+        }
+
+        isSaving = true;
+
+        try
+        {
+            currentUser!.Email = email;
+
+            if (!string.IsNullOrEmpty(newPassword))
+            {
+                currentUser.PasswordHash = AuthenticationService.HashPassword(newPassword);
+            }
+
+            await UserRepository.UpdateAsync(currentUser);
+
+            successMessage = "Profile updated successfully!";
+
+            // Clear password fields
+            currentPassword = string.Empty;
+            newPassword = string.Empty;
+            confirmPassword = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving profile: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ClearAvatar()
+    {
+        try
+        {
+            currentUser!.AvatarImage = null;
+            currentUser.AvatarContentType = null;
+
+            await UserRepository.UpdateAsync(currentUser);
+
+            avatarTimestamp = DateTime.UtcNow.Ticks;
+            avatarMessage = "Avatar cleared. Using default avatar.";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error clearing avatar: {ex.Message}";
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/");
+    }
+}

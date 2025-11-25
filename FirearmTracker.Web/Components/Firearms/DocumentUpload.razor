@@ -1,0 +1,352 @@
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Web.Services
+@using FirearmTracker.Web.Components
+@inject IDocumentRepository DocumentRepository
+@inject FileUploadService FileUploadService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<div class="document-section">
+    <!-- Hidden file input -->
+    <InputFile @ref="fileInput" id="@FileInputId" OnChange="HandleFileSelected" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.mp4,.mov,.avi,.wmv,.mkv" style="display: none;" />
+
+    @if (documents.Any())
+    {
+        <div class="document-grid">
+            @foreach (var doc in documents)
+            {
+                <div class="document-card">
+                    <div class="document-thumbnail" @onclick="() => PreviewDocument(doc)">
+                        @if (IsImage(doc.ContentType))
+                        {
+                            <img src="@GetFileUrl(doc.FileName)" alt="@doc.OriginalFileName" />
+                        }
+                        else if (IsPdf(doc.ContentType))
+                        {
+                            @if (!string.IsNullOrEmpty(doc.ThumbnailFileName))
+                            {
+                                <img src="@GetThumbnailUrl(doc.ThumbnailFileName)" alt="@doc.OriginalFileName" />
+                            }
+                            else
+                            {
+                                <div class="document-icon">
+                                    <Icon Name="pdf" Size="large" />
+                                </div>
+                            }
+                        }
+                        else if (IsVideo(doc.ContentType))
+                        {
+                            @if (!string.IsNullOrEmpty(doc.ThumbnailFileName))
+                            {
+                                <img src="@GetThumbnailUrl(doc.ThumbnailFileName)" alt="@doc.OriginalFileName" />
+                            }
+                            else
+                            {
+                                <div class="document-icon">
+                                    <Icon Name="video" Size="large" />
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="document-icon">
+                                <Icon Name="documents" Size="large" />
+                            </div>
+                        }
+                    </div>
+                    <div class="document-card-info">
+                        <div class="document-name" title="@doc.OriginalFileName">@doc.OriginalFileName</div>
+                        @if (!string.IsNullOrEmpty(doc.Description))
+                        {
+                            <div class="document-description">@doc.Description</div>
+                        }
+                        <div class="document-meta">
+                            <small class="text-muted">@doc.UploadedDate.ToShortDateString()</small>
+                            <small class="text-muted">@FormatFileSize(doc.FileSize)</small>
+                        </div>
+                    </div>
+                    <div class="document-card-actions">
+                        <a href="@GetFileUrl(doc.FileName)" class="btn-icon-only" title="Download" target="_blank" download="@doc.OriginalFileName" @onclick:stopPropagation="true">
+                            <Icon Name="view" />
+                        </a>
+                        <button @onclick="() => DeleteDocument(doc.Id)" @onclick:stopPropagation="true" class="btn-icon-only" title="Delete">
+                            <Icon Name="delete" />
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <p class="no-activities">No documents uploaded yet.</p>
+    }
+</div>
+
+@if (showUploadDialog)
+{
+    <div class="confirmation-overlay">
+        <div class="confirmation-dialog">
+            <h4>Upload Document</h4>
+            
+            @if (selectedFile != null)
+            {
+                <div class="form-group">
+                    <label>File</label>
+                    <div><strong>@selectedFile.Name</strong></div>
+                    <small class="text-muted">@FormatFileSize(selectedFile.Size)</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Description (optional)</label>
+                    <input type="text" @bind="documentDescription" placeholder="Enter a description" class="form-control" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(uploadMessage))
+                {
+                    <div class="alert @(uploadSuccess ? "alert-success" : "alert-error")">
+                        @uploadMessage
+                    </div>
+                }
+
+                <div class="confirmation-actions">
+                    <button @onclick="UploadFile" class="btn-icon-only" disabled="@isUploading" title="@(isUploading ? "Uploading..." : "Upload")">
+                        <Icon Name="upload" />
+                    </button>
+                    <button @onclick="CancelUpload" class="btn-icon-only" disabled="@isUploading" title="Cancel">
+                        <Icon Name="back" />
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@if (showImagePreview && previewDocument != null)
+{
+    <div class="image-preview-overlay" @onclick="CloseImagePreview">
+        <div class="image-preview-dialog" @onclick:stopPropagation="true">
+            <div class="image-preview-header">
+                <h4>@previewDocument.OriginalFileName</h4>
+                <button @onclick="CloseImagePreview" class="btn-icon-only" title="Close">
+                    <Icon Name="back" />
+                </button>
+            </div>
+            <div class="image-preview-content">
+                @if (IsImage(previewDocument.ContentType))
+                {
+                    <img src="@GetFileUrl(previewDocument.FileName)" alt="@previewDocument.OriginalFileName" />
+                }
+                else if (IsPdf(previewDocument.ContentType))
+                {
+                    <embed src="@GetFileUrl(previewDocument.FileName)" type="application/pdf" width="100%" height="600px" />
+                }
+                else if (IsVideo(previewDocument.ContentType))
+                {
+                    <video controls width="100%" style="max-height: 600px;">
+                        <source src="@GetFileUrl(previewDocument.FileName)" type="@previewDocument.ContentType">
+                        Your browser does not support the video tag.
+                    </video>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(previewDocument.Description))
+            {
+                <div class="image-preview-description">
+                    @previewDocument.Description
+                </div>
+            }
+            <div class="image-preview-meta">
+                <small>Uploaded: @previewDocument.UploadedDate.ToShortDateString()</small>
+                <small>Size: @FormatFileSize(previewDocument.FileSize)</small>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int? ActivityId { get; set; }
+
+    [Parameter]
+    public int? FirearmId { get; set; }
+
+    [Parameter]
+    public EventCallback OnDocumentChanged { get; set; }
+
+    private List<Document> documents = new();
+    private IBrowserFile? selectedFile;
+    private string documentDescription = string.Empty;
+    private bool isUploading = false;
+    private string uploadMessage = string.Empty;
+    private bool uploadSuccess = false;
+    private InputFile? fileInput;
+    private bool showUploadDialog = false;
+    private bool showImagePreview = false;
+    private Document? previewDocument;
+
+    private string FileInputId => $"fileUpload_{FirearmId ?? ActivityId ?? 0}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDocuments();
+    }
+
+    private async Task LoadDocuments()
+    {
+        if (ActivityId.HasValue)
+        {
+            documents = await DocumentRepository.GetByActivityIdAsync(ActivityId.Value);
+        }
+        else if (FirearmId.HasValue)
+        {
+            documents = await DocumentRepository.GetByFirearmIdAsync(FirearmId.Value);
+        }
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        uploadMessage = string.Empty;
+        showUploadDialog = true;
+        StateHasChanged();
+    }
+
+    private async Task UploadFile()
+    {
+        if (selectedFile == null) return;
+
+        isUploading = true;
+        uploadMessage = string.Empty;
+
+        try
+        {
+            using var stream = selectedFile.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
+            var (success, fileName, thumbnailFileName, errorMessage) = await FileUploadService.SaveFileAsync(
+                stream,
+                selectedFile.Name,
+                selectedFile.ContentType);
+
+            if (success && fileName != null)
+            {
+                var document = new Document
+                {
+                    ActivityId = ActivityId,
+                    FirearmId = FirearmId,
+                    FileName = fileName,
+                    OriginalFileName = selectedFile.Name,
+                    ThumbnailFileName = thumbnailFileName,
+                    ContentType = selectedFile.ContentType,
+                    FileSize = selectedFile.Size,
+                    Description = documentDescription
+                };
+
+                await DocumentRepository.AddAsync(document);
+                await LoadDocuments();
+                await OnDocumentChanged.InvokeAsync();
+
+                uploadMessage = "File uploaded successfully!";
+                uploadSuccess = true;
+                
+                // Close dialog after brief delay to show success message
+                await Task.Delay(1500);
+                CancelUpload();
+            }
+            else
+            {
+                uploadMessage = errorMessage ?? "Upload failed";
+                uploadSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            uploadMessage = $"Error: {ex.Message}";
+            uploadSuccess = false;
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private void CancelUpload()
+    {
+        selectedFile = null;
+        documentDescription = string.Empty;
+        uploadMessage = string.Empty;
+        showUploadDialog = false;
+        uploadSuccess = false;
+    }
+
+    private async Task DeleteDocument(int documentId)
+    {
+        var document = await DocumentRepository.GetByIdAsync(documentId);
+        if (document != null)
+        {
+            FileUploadService.DeleteFile(document.FileName);
+            
+            // Delete thumbnail if it exists
+            if (!string.IsNullOrEmpty(document.ThumbnailFileName))
+            {
+                FileUploadService.DeleteThumbnail(document.ThumbnailFileName);
+            }
+            
+            await DocumentRepository.DeleteAsync(documentId);
+            await LoadDocuments();
+            await OnDocumentChanged.InvokeAsync();
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+
+    private bool IsImage(string contentType)
+    {
+        return contentType.StartsWith("image/");
+    }
+
+    private bool IsPdf(string contentType)
+    {
+        return contentType == "application/pdf";
+    }
+
+    private bool IsVideo(string contentType)
+    {
+        return contentType.StartsWith("video/");
+    }
+
+    private string GetFileUrl(string fileName)
+    {
+        return $"/uploads/{fileName}";
+    }
+
+    private string GetThumbnailUrl(string thumbnailFileName)
+    {
+        return $"/uploads/thumbnails/{thumbnailFileName}";
+    }
+
+    private void PreviewDocument(Document document)
+    {
+        if (IsImage(document.ContentType) || IsPdf(document.ContentType) || IsVideo(document.ContentType))
+        {
+            previewDocument = document;
+            showImagePreview = true;
+        }
+    }
+
+    private void CloseImagePreview()
+    {
+        showImagePreview = false;
+        previewDocument = null;
+    }
+}

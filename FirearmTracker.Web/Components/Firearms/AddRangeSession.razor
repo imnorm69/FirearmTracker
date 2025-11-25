@@ -1,0 +1,187 @@
+﻿@page "/firearms/{FirearmId:int}/range-session/add"
+@page "/firearms/{FirearmId:int}/range-session/{ActivityId:int}/edit"
+@attribute [Authorize(Roles = "Owner,Administrator,PowerUser")]
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Core.Enums
+@using System.Text.Json
+@using FirearmTracker.Web.Components
+@inject IActivityRepository ActivityRepository
+@inject IFirearmRepository FirearmRepository
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<link href="css/firearms.css" rel="stylesheet" />
+
+<div class="form-container">
+    <h3 class="firearms-header">@(isEditMode ? "Edit" : "Record") Range Session</h3>
+
+    @if (firearm != null)
+    {
+        <p><strong>Firearm:</strong> @firearm.Manufacturer @firearm.Model</p>
+    }
+
+    <div class="form-paper">
+        <div class="form-group">
+            <label>Date *</label>
+            <input type="date" @bind="activityDate" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Rounds Fired</label>
+            <input type="number" @bind="rangeData.RoundsFired" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Location/Range Name</label>
+            <input type="text" @bind="rangeData.LocationName" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label>Ammunition Type/Brand</label>
+            <input type="text" @bind="rangeData.AmmunitionType" class="form-control" placeholder="e.g., Federal 9mm 115gr FMJ" />
+        </div>
+
+        <div class="form-group">
+            <label>Performance Notes</label>
+            <textarea @bind="rangeData.PerformanceNotes" class="form-control" rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>
+                <input type="checkbox" @bind="rangeData.CleanedAfterSession" />
+                Cleaned after session
+            </label>
+        </div>
+
+        <div class="form-group">
+            <label>Notes</label>
+            <textarea @bind="notes" class="form-control" rows="4"></textarea>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-error">
+                @errorMessage
+            </div>
+        }
+
+        <div class="form-actions">
+            <button @onclick="SaveRangeSession" class="btn-icon-only" title="Save">
+            <Icon Name="save" />
+        </button>
+            <button @onclick="Cancel" class="btn-icon-only" title="Cancel">
+            <Icon Name="back" />
+        </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int FirearmId { get; set; }
+
+    [Parameter]
+    public int? ActivityId { get; set; }
+
+    private Firearm? firearm;
+    private Activity? existingActivity;
+    private DateTime? activityDate;
+    private string notes = string.Empty;
+    private string errorMessage = string.Empty;
+    private RangeSessionActivityData rangeData = new();
+    private bool isEditMode => ActivityId.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        firearm = await FirearmRepository.GetByIdAsync(FirearmId);
+        if (firearm == null)
+        {
+            Navigation.NavigateTo("/firearms");
+            return;
+        }
+
+        if (isEditMode)
+        {
+            existingActivity = await ActivityRepository.GetByIdAsync(ActivityId!.Value);
+            if (existingActivity == null || existingActivity.ActivityType != ActivityType.RangeSession)
+            {
+                Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+                return;
+            }
+
+            activityDate = existingActivity.ActivityDate;
+            notes = existingActivity.Notes;
+
+            if (!string.IsNullOrEmpty(existingActivity.AdditionalData))
+            {
+                try
+                {
+                    rangeData = JsonSerializer.Deserialize<RangeSessionActivityData>(existingActivity.AdditionalData) ?? new();
+                }
+                catch
+                {
+                    rangeData = new();
+                }
+            }
+        }
+    }
+
+    private async Task SaveRangeSession()
+    {
+        errorMessage = string.Empty;
+
+        if (!activityDate.HasValue)
+        {
+            errorMessage = "Date is required";
+            return;
+        }
+
+        try
+        {
+            var description = rangeData.RoundsFired.HasValue
+                ? $"Range session - {rangeData.RoundsFired} rounds"
+                : "Range session";
+
+            if (!string.IsNullOrWhiteSpace(rangeData.LocationName))
+            {
+                description += $" at {rangeData.LocationName}";
+            }
+
+            if (isEditMode && existingActivity != null)
+            {
+                existingActivity.ActivityDate = activityDate.Value;
+                existingActivity.Description = description;
+                existingActivity.Notes = notes;
+                existingActivity.AdditionalData = JsonSerializer.Serialize(rangeData);
+
+                await ActivityRepository.UpdateAsync(existingActivity);
+            }
+            else
+            {
+                var activity = new Activity
+                {
+                    FirearmId = FirearmId,
+                    ActivityType = ActivityType.RangeSession,
+                    ActivityDate = activityDate.Value,
+                    Description = description,
+                    Notes = notes,
+                    AdditionalData = JsonSerializer.Serialize(rangeData)
+                };
+
+                await ActivityRepository.AddAsync(activity);
+            }
+
+            Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving range session: {ex.Message}";
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo($"/firearms/detail/{FirearmId}");
+    }
+}
