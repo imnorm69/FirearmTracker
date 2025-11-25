@@ -124,7 +124,7 @@ dotnet ef database update
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/FirearmTracker.git
+git clone https://github.com/imnorm69/FirearmTracker.git
 cd FirearmTracker
 ```
 
@@ -323,7 +323,7 @@ When reporting bugs, please include:
 
 ### Feature Requests
 
-Check the [User Stories document](Firearm_Tracker_-_All_User_Stories.md) to see planned features. New ideas are welcome - open an issue for discussion before starting major work.
+Check the [User Stories document](docs/backlog.md) to see planned features. New ideas are welcome - open an issue for discussion before starting major work.
 
 ## Roadmap
 
