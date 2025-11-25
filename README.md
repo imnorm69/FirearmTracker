@@ -1,5 +1,7 @@
 # FirearmTracker
 
+![FirearmTracker Logo](assets/firearmtracker-logo-1280x640.png)
+
 A comprehensive personal firearms collection management application built with ASP.NET Core and Blazor Server.
 
 ## Overview
