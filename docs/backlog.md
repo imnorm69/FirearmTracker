@@ -3,8 +3,6 @@
 | Story # | Description | Module | Priority |
 |--------|-------------|---------|----------|
 | 28.1 | Implement Data Backup System | Infrastructure | 1 |
-| 33.4 | Allow changing the DB config in Setup menu | Setup | 2 |
-| 32.2 | Add settings page to allow user to configure Postgres | Architecture | 3 |
 | 2C | Add Validation | Application-wide | 5 |
 | 16.4 | Mobile/Tablet Responsive Layout | UI/UX | 6 |
 | 29.1 | Code Analysis Cleanup & Security Audit | Development | 7 |
@@ -32,3 +30,6 @@
 | 19.2 | Cross-Tenant Firearm Transactions | Architecture | 27 |
 | 25.3 | Ammunition Consumption Tracking | Inventory | 28 |
 | 36.1 | Investigate possible APIs or web-docs that might be useful for integration or lookups | Spikes | 32 |
+| 31.20 | Update CSS files with color scheme to match new banner graphic | UI/UX | 33 |
+| 31.21 | Examine ALL icons for better alignment with new logo | UI/UX | 34 |
+| 31.22 | Create a simple icon-logo for the application and use it in the main layout instead fo the current text title | UI/UX | 35 |
