@@ -1,0 +1,11 @@
+{
+  "DatabaseType": 1,
+  "SqliteFilePath": null,
+  "PostgresConfig": {
+    "Host": "localhost",
+    "Port": 5432,
+    "Database": "dummy",
+    "Username": "dummy",
+    "Password": "dummy"
+  }
+}

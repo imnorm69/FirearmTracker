@@ -1,3 +1,5 @@
+using FirearmTracker.Core.Enums;
+using FirearmTracker.Core.Models;
 using FirearmTracker.Core.Interfaces;
 using FirearmTracker.Data.Context;
 using FirearmTracker.Data.Repositories;
@@ -17,15 +19,48 @@ builder.Services.AddRazorComponents()
 builder.Logging.AddFilter("Microsoft.AspNetCore.Antiforgery", LogLevel.Debug);
 builder.Logging.AddFilter("Microsoft.AspNetCore.Components.Forms", LogLevel.Debug);
 
-// Database
-//builder.Services.AddDbContext<FirearmTrackerContext>(options =>
-//    options.UseSqlite(
-//        builder.Configuration.GetConnectionString("DefaultConnection")
-//        ?? "Data Source=firearms.db"));
-builder.Services.AddDbContext<FirearmTrackerContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? "Data Source=firearms.db"));
+// Configuration Services
+builder.Services.AddSingleton<IDatabaseConfigurationService, DatabaseConfigurationService>();
+builder.Services.AddSingleton<IHealthCheckService, HealthCheckService>();
+
+// Database - Configure based on dbconfig.json
+// Database - Configure based on dbconfig.json
+// Database - Configure based on dbconfig.json
+// Database - Configure based on dbconfig.json
+builder.Services.AddDbContext<FirearmTrackerContext>((serviceProvider, options) =>
+{
+    var environment = serviceProvider.GetRequiredService<IWebHostEnvironment>();
+    var configFilePath = Path.Combine(environment.ContentRootPath, "dbconfig.json");
+
+    DatabaseConfiguration? dbConfig = null;
+    if (File.Exists(configFilePath))
+    {
+        var json = File.ReadAllText(configFilePath);
+        dbConfig = System.Text.Json.JsonSerializer.Deserialize<DatabaseConfiguration>(json);
+    }
+
+    if (dbConfig == null)
+    {
+        // No configuration exists yet - use SQLite as default for initial setup
+        options.UseSqlite("Data Source=firearmtracker.db",
+            x => x.MigrationsAssembly("FirearmTracker.Data.Migrations.Sqlite"));
+    }
+    else
+    {
+        var connectionString = dbConfig.GetConnectionString();
+
+        if (dbConfig.DatabaseType == DatabaseType.Sqlite)
+        {
+            options.UseSqlite(connectionString,
+                x => x.MigrationsAssembly("FirearmTracker.Data.Migrations.Sqlite"));
+        }
+        else if (dbConfig.DatabaseType == DatabaseType.Postgres)
+        {
+            options.UseNpgsql(connectionString,
+                x => x.MigrationsAssembly("FirearmTracker.Data.Migrations.Postgres"));
+        }
+    }
+});
 
 // Repositories
 builder.Services.AddScoped<IFirearmRepository, FirearmRepository>();
@@ -45,7 +80,6 @@ builder.Services.AddScoped<IconService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IAvatarService, AvatarService>();
-builder.Services.AddSingleton<IHealthCheckService, HealthCheckService>();
 
 // Authentication
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -112,9 +146,6 @@ app.UseStaticFiles();
 //
 // 2. FIRST-TIME SETUP CHECK — SAFE, NO REDIRECT LOOP
 //
-//
-// 2. FIRST-TIME SETUP CHECK — SAFE, NO REDIRECT LOOP
-//
 app.Use(async (context, next) =>
 {
     // Skip the check for static files, _framework, and antiforgery endpoints
@@ -128,13 +159,25 @@ app.Use(async (context, next) =>
         return;
     }
 
-    // Only check for first-time setup on actual page requests
-    if (context.Request.Path.StartsWithSegments("/setup"))
+    // Skip checks if already on setup or database setup pages
+    if (context.Request.Path.StartsWithSegments("/setup") ||
+        context.Request.Path.StartsWithSegments("/admin/database-setup"))
     {
         await next();
         return;
     }
 
+    // Check for database configuration first
+    var dbConfigService = context.RequestServices.GetRequiredService<IDatabaseConfigurationService>();
+    var hasDbConfig = await dbConfigService.ConfigurationExistsAsync();
+
+    if (!hasDbConfig)
+    {
+        context.Response.Redirect("/admin/database-setup");
+        return;
+    }
+
+    // Then check for first-time user setup
     var authService = context.RequestServices.GetRequiredService<IAuthenticationService>();
     var isFirstTime = await authService.IsFirstTimeSetupAsync();
 

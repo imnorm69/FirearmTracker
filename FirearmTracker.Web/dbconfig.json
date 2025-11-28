@@ -1,0 +1,11 @@
+{
+  "DatabaseType": 1,
+  "SqliteFilePath": null,
+  "PostgresConfig": {
+    "Host": "localhost",
+    "Port": 5432,
+    "Database": "firearmtracker",
+    "Username": "firearmtracker",
+    "Password": "Pa$$word2025"
+  }
+}

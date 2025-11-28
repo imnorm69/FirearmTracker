@@ -1,0 +1,278 @@
+﻿@page "/admin/database-setup"
+@attribute [AllowAnonymous]
+@rendermode InteractiveServer
+@using FirearmTracker.Core.Enums
+@using FirearmTracker.Core.Models
+@using FirearmTracker.Core.Interfaces
+@inject IDatabaseConfigurationService ConfigService
+@inject NavigationManager Navigation
+@inject ILogger<DatabaseSetup> Logger
+
+<h3>Database Configuration</h3>
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
+        @_message
+        <button type="button" class="btn-close" @onclick="() => _message = null"></button>
+    </div>
+}
+
+@if (_configExists && _isReadOnly)
+{
+    <div class="alert alert-info">
+        <strong>Current Configuration:</strong> Database is configured. Editing is currently disabled.
+    </div>
+}
+
+<EditForm Model="@_model" OnValidSubmit="HandleSubmit" FormName="DatabaseSetupForm">
+    <DataAnnotationsValidator />
+
+    <div class="mb-3">
+        <label class="form-label">Database Type</label>
+        <InputSelect class="form-select" @bind-Value="_model.DatabaseType" disabled="@_isReadOnly">
+            <option value="@DatabaseType.Sqlite">SQLite (Simple, file-based)</option>
+            <option value="@DatabaseType.Postgres">PostgreSQL (Advanced, server-based)</option>
+        </InputSelect>
+    </div>
+
+    @if (_model.DatabaseType == DatabaseType.Sqlite)
+    {
+        <div class="mb-3">
+            <label class="form-label">Database File Path</label>
+            <InputText class="form-control" @bind-Value="_model.SqliteFilePath" disabled="@_isReadOnly" />
+            <div class="form-text">Leave default or specify a custom path for the SQLite database file.</div>
+        </div>
+    }
+    else if (_model.DatabaseType == DatabaseType.Postgres)
+    {
+        <div class="card mb-3">
+            <div class="card-header">
+                <strong>PostgreSQL Connection Details</strong>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Host</label>
+                        <InputText class="form-control" @bind-Value="_model.PostgresHost" disabled="@_isReadOnly" placeholder="localhost" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Port</label>
+                        <InputNumber class="form-control" @bind-Value="_model.PostgresPort" disabled="@_isReadOnly" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Database Name</label>
+                    <InputText class="form-control" @bind-Value="_model.PostgresDatabase" disabled="@_isReadOnly" placeholder="firearmtracker" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <InputText class="form-control" @bind-Value="_model.PostgresUsername" disabled="@_isReadOnly" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <InputText type="password" class="form-control" @bind-Value="_model.PostgresPassword" disabled="@_isReadOnly" />
+                </div>
+
+                @if (!_isReadOnly)
+                {
+                    <button type="button" class="btn btn-secondary" @onclick="TestConnection" disabled="@_testing">
+                        @if (_testing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Test Connection
+                    </button>
+                }
+            </div>
+        </div>
+
+        @if (!_isReadOnly)
+        {
+            <div class="alert alert-warning">
+                <strong>Before proceeding:</strong> Ensure you have created the database and user in PostgreSQL.
+                <button type="button" class="btn btn-link btn-sm" @onclick="() => _showSqlScript = !_showSqlScript">
+                    @(_showSqlScript ? "Hide" : "Show") SQL Script
+                </button>
+
+                @if (_showSqlScript)
+                {
+                    <pre class="mt-2 p-2 bg-light border">
+            -- Run these commands as a PostgreSQL superuser (e.g., postgres)
+            -- Connect to the 'postgres' database first, then run:
+            CREATE DATABASE @_model.PostgresDatabase;
+            CREATE USER @_model.PostgresUsername WITH PASSWORD '@_model.PostgresPassword';
+            GRANT ALL PRIVILEGES ON DATABASE @_model.PostgresDatabase TO @_model.PostgresUsername;
+
+            -- Now connect to the new database (@_model.PostgresDatabase) and run:
+            GRANT ALL ON SCHEMA public TO @_model.PostgresUsername;
+            GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO @_model.PostgresUsername;
+            GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO @_model.PostgresUsername;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO @_model.PostgresUsername;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO @_model.PostgresUsername;</pre>
+                }
+            </div>
+        }
+    }
+
+    @if (!_isReadOnly)
+    {
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary" disabled="@_saving">
+                @if (_saving)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                Save Configuration
+            </button>
+            <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+        </div>
+    }
+</EditForm>
+
+@code {
+    private DatabaseSetupModel _model = new();
+    private bool _configExists;
+    private bool _isReadOnly = true;
+    private bool _testing;
+    private bool _saving;
+    private bool _showSqlScript;
+    private string? _message;
+    private bool _isError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _configExists = await ConfigService.ConfigurationExistsAsync();
+
+        if (_configExists)
+        {
+            var config = await ConfigService.LoadConfigurationAsync();
+            if (config != null)
+            {
+                _model.DatabaseType = config.DatabaseType;
+                _model.SqliteFilePath = config.SqliteFilePath ?? "firearmtracker.db";
+
+                if (config.PostgresConfig != null)
+                {
+                    _model.PostgresHost = config.PostgresConfig.Host;
+                    _model.PostgresPort = config.PostgresConfig.Port;
+                    _model.PostgresDatabase = config.PostgresConfig.Database;
+                    _model.PostgresUsername = config.PostgresConfig.Username;
+                    _model.PostgresPassword = config.PostgresConfig.Password;
+                }
+            }
+        }
+        else
+        {
+            // First time setup - allow editing
+            _isReadOnly = false;
+        }
+    }
+
+    private async Task TestConnection()
+    {
+        _testing = true;
+        _message = null;
+
+        try
+        {
+            var postgresConfig = new PostgresConfiguration
+            {
+                Host = _model.PostgresHost,
+                Port = _model.PostgresPort,
+                Database = _model.PostgresDatabase,
+                Username = _model.PostgresUsername,
+                Password = _model.PostgresPassword
+            };
+
+            var success = await ConfigService.TestPostgresConnectionAsync(postgresConfig);
+
+            if (success)
+            {
+                _message = "Connection successful!";
+                _isError = false;
+            }
+            else
+            {
+                _message = "Connection failed. Please check your settings and ensure the database and user exist.";
+                _isError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error testing PostgreSQL connection");
+            _message = $"Connection test failed: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _testing = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        _saving = true;
+        _message = null;
+
+        try
+        {
+            var config = new DatabaseConfiguration
+            {
+                DatabaseType = _model.DatabaseType
+            };
+
+            if (_model.DatabaseType == DatabaseType.Sqlite)
+            {
+                config.SqliteFilePath = _model.SqliteFilePath;
+            }
+            else
+            {
+                // Test connection before saving
+                var postgresConfig = new PostgresConfiguration
+                {
+                    Host = _model.PostgresHost,
+                    Port = _model.PostgresPort,
+                    Database = _model.PostgresDatabase,
+                    Username = _model.PostgresUsername,
+                    Password = _model.PostgresPassword
+                };
+
+                var connectionSuccess = await ConfigService.TestPostgresConnectionAsync(postgresConfig);
+                if (!connectionSuccess)
+                {
+                    _message = "Cannot save: PostgreSQL connection test failed. Please verify your settings.";
+                    _isError = true;
+                    _saving = false;
+                    return;
+                }
+
+                config.PostgresConfig = postgresConfig;
+            }
+
+            await ConfigService.SaveConfigurationAsync(config);
+
+            _message = "Configuration saved! Please restart the application for changes to take effect.";
+            _isError = false;
+            _isReadOnly = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving database configuration");
+            _message = $"Error saving configuration: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/");
+    }
+}

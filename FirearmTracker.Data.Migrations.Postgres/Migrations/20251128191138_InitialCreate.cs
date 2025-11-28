@@ -4,10 +4,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace FirearmTracker.Data.Migrations
+namespace FirearmTracker.Data.Migrations.Postgres.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialPostgreSQLMigration : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -67,7 +67,9 @@ namespace FirearmTracker.Data.Migrations
                     Role = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     CreatedDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     LastLoginDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    IsActive = table.Column<bool>(type: "boolean", nullable: false)
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
+                    AvatarImage = table.Column<byte[]>(type: "bytea", nullable: true),
+                    AvatarContentType = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -203,10 +205,11 @@ namespace FirearmTracker.Data.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    ActivityId = table.Column<int>(type: "integer", nullable: true),
                     FirearmId = table.Column<int>(type: "integer", nullable: true),
+                    ActivityId = table.Column<int>(type: "integer", nullable: true),
                     FileName = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     OriginalFileName = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    ThumbnailFileName = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     ContentType = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     FileSize = table.Column<long>(type: "bigint", nullable: false),
                     Description = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),

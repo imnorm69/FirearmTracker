@@ -9,11 +9,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace FirearmTracker.Data.Migrations
+namespace FirearmTracker.Data.Migrations.Postgres.Migrations
 {
     [DbContext(typeof(FirearmTrackerContext))]
-    [Migration("20251123231624_InitialPostgreSQLMigration")]
-    partial class InitialPostgreSQLMigration
+    [Migration("20251128191138_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -286,6 +286,10 @@ namespace FirearmTracker.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("ThumbnailFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
                     b.Property<DateTime>("UploadedDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -389,6 +393,12 @@ namespace FirearmTracker.Data.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AvatarContentType")
+                        .HasColumnType("text");
+
+                    b.Property<byte[]>("AvatarImage")
+                        .HasColumnType("bytea");
 
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("timestamp with time zone");

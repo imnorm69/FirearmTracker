@@ -1,0 +1,5 @@
+{
+  "DatabaseType": 0,
+  "SqliteFilePath": "firearmtracker.db",
+  "PostgresConfig": null
+}

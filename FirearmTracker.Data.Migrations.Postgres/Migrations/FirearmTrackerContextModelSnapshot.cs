@@ -8,7 +8,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace FirearmTracker.Data.Migrations
+namespace FirearmTracker.Data.Migrations.Postgres.Migrations
 {
     [DbContext(typeof(FirearmTrackerContext))]
     partial class FirearmTrackerContextModelSnapshot : ModelSnapshot

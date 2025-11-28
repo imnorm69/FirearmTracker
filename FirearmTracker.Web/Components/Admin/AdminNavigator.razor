@@ -3,32 +3,34 @@
 @using FirearmTracker.Core.Models
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
-
 <link href="css/firearms.css" rel="stylesheet" />
-
 <h3>Administration</h3>
-
 <div class="firearms-container">
     <div class="firearms-sidebar">
         <nav class="nav flex-column">
-            <button class="nav-link @(activeTab == "users" ? "active" : "")" 
+            <button class="nav-link @(activeTab == "users" ? "active" : "")"
                     @onclick='() => SetActiveTab("users")'>
                 <Icon Name="activity-generic" /> Users
             </button>
+            <button class="nav-link @(activeTab == "database" ? "active" : "")"
+                    @onclick='() => SetActiveTab("database")'>
+                <Icon Name="activity-generic" /> Database Setup
+            </button>
         </nav>
     </div>
-
     <div class="firearms-content">
         @if (activeTab == "users")
         {
             <UsersList />
         }
+        else if (activeTab == "database")
+        {
+            <DatabaseSetup />
+        }
     </div>
 </div>
-
 @code {
     private string activeTab = "users";
-
     private void SetActiveTab(string tab)
     {
         activeTab = tab;

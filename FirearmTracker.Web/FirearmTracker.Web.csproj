@@ -21,6 +21,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FirearmTracker.Core\FirearmTracker.Core.csproj" />
+    <ProjectReference Include="..\FirearmTracker.Data.Migrations.Postgres\FirearmTracker.Data.Migrations.Postgres.csproj" />
+    <ProjectReference Include="..\FirearmTracker.Data.Migrations.Sqlite\FirearmTracker.Data.Migrations.Sqlite.csproj" />
     <ProjectReference Include="..\FirearmTracker.Data\FirearmTracker.Data.csproj" />
   </ItemGroup>
 
