@@ -4,7 +4,7 @@ namespace FirearmTracker.Core.Models
 {
     public class BackupMetadata
     {
-        public string Version { get; set; } = "0.6.0";
+        public string Version { get; set; } = AppVersion.Current;
         public DateTime CreatedDate { get; set; }
         public DatabaseType DatabaseType { get; set; }
         public int FirearmCount { get; set; }

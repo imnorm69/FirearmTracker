@@ -366,6 +366,12 @@ The application has been designed with Raspberry Pi deployment in mind:
    - Link accessories to specific firearms
    - Track which accessories are included when firearms are sold
 
+7. **Database Backup/Restore**:
+   - Navigate to Administration (must be logged in as owner or admin role)
+   - Select Backup & Restore
+   - NOTE:  Restore requires the current system and backup file to have the same schema version
+   - NOTE:  Restore overwrites all existing data, including users and attached documents
+
 ### Common Workflows
 
 **Recording a Purchase:**
@@ -435,6 +441,8 @@ dotnet ef migrations add YourMigrationName --project FirearmTracker.Data.Migrati
 ```
 
 3. Delete the temporary `dbconfig.json`
+
+4. Update AppVersion.cs in FirearmTracker.Core with an incremented version (db schema version) number.
 
 ### Code Standards
 

@@ -1,4 +1,5 @@
-﻿using FirearmTracker.Core.Interfaces;
+﻿using FirearmTracker.Core;
+using FirearmTracker.Core.Interfaces;
 using FirearmTracker.Core.Models;
 using FirearmTracker.Data.Context;
 using Microsoft.EntityFrameworkCore;
@@ -116,10 +117,10 @@ namespace FirearmTracker.Web.Services
                 var currentVersion = new Version("0.6.0");
                 var backupVersion = new Version(metadata.Version);
 
-                if (backupVersion > currentVersion)
+                if (backupVersion != currentVersion)
                 {
                     throw new InvalidOperationException(
-                        $"Backup was created with a newer version ({metadata.Version}) and cannot be restored to this version (0.6.0). Please update the application first.");
+                        $"Backup version mismatch: Backup was created with version {metadata.Version} but this application is version {AppVersion.Current}. Backups can only be restored to the same version they were created with.");
                 }
 
                 _logger.LogInformation("Backup validation successful. Version: {Version}, Created: {Date}, Files: {Count}",
