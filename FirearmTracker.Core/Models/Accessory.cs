@@ -1,4 +1,6 @@
-﻿namespace FirearmTracker.Core.Models
+﻿using FirearmTracker.Core.Enums;
+
+namespace FirearmTracker.Core.Models
 {
     public class Accessory
     {
@@ -21,12 +23,5 @@
         public DateTime? SaleDate { get; set; }
         public decimal? SalePrice { get; set; }
         public bool IsDeleted => SaleDate.HasValue;
-    }
-
-    public enum AccessoryStatus
-    {
-        Available,
-        LinkedToFirearm,
-        Sold
     }
 }

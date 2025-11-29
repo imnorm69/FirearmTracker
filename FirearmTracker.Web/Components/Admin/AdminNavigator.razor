@@ -16,6 +16,10 @@
                     @onclick='() => SetActiveTab("database")'>
                 <Icon Name="activity-generic" /> Database Setup
             </button>
+            <button class="nav-link @(activeTab == "backup" ? "active" : "")"
+                    @onclick='() => SetActiveTab("backup")'>
+                <Icon Name="activity-generic" /> Backup & Restore
+            </button>
         </nav>
     </div>
     <div class="firearms-content">
@@ -26,6 +30,10 @@
         else if (activeTab == "database")
         {
             <DatabaseSetup />
+        }
+        else if (activeTab == "backup")
+        {
+            <BackupRestore />
         }
     </div>
 </div>

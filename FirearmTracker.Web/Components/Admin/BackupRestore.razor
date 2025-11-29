@@ -1,0 +1,304 @@
+﻿@page "/admin/backup-restore"
+@attribute [Authorize(Roles = "Owner,Administrator")]
+@rendermode InteractiveServer
+@using FirearmTracker.Core.Interfaces
+@using FirearmTracker.Core.Models
+@using System.Security.Claims
+@inject IBackupRestoreService BackupService
+@inject ILogger<BackupRestore> Logger
+@inject IHostApplicationLifetime HostLifetime
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<h3>Backup & Restore</h3>
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="alert @(_isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
+        @_message
+        <button type="button" class="btn-close" @onclick="() => _message = null"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5>Create Backup</h5>
+            </div>
+            <div class="card-body">
+                <p>Create a complete backup of your database including all firearms, activities, documents, and user accounts.</p>
+                <p class="text-muted small">The backup file will include all uploaded documents and can be restored to any database type (SQLite or PostgreSQL).</p>
+
+                <button class="btn btn-primary" @onclick="CreateBackup" disabled="@_creatingBackup">
+                    @if (_creatingBackup)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    <Icon Name="activity-generic" /> Create Backup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5>Restore Backup</h5>
+            </div>
+            <div class="card-body">
+                <p>Restore a previous backup file. This will replace ALL current data.</p>
+                <p class="text-danger small"><strong>Warning:</strong> This operation cannot be undone!</p>
+
+                <InputFile OnChange="HandleFileSelected" class="form-control mb-2" accept=".ftrackbak" />
+
+                @if (_selectedFile != null)
+                {
+                    <p class="text-muted small">Selected: @_selectedFile.Name (@FormatFileSize(_selectedFile.Size))</p>
+                }
+
+                <button class="btn btn-danger" @onclick="ShowRestoreWarning" disabled="@(_selectedFile == null || _restoring)">
+                    @if (_restoring)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    <Icon Name="activity-generic" /> Restore Backup
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* Warning Modal 1 - Initial Warning *@
+@if (_showWarning1)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">⚠️ WARNING: Restore Database</h5>
+                </div>
+                <div class="modal-body">
+                    <p><strong>This will PERMANENTLY DELETE all current data including:</strong></p>
+                    <ul>
+                        <li>All firearms and activities</li>
+                        <li>All accessories and ammunition</li>
+                        <li>All uploaded documents</li>
+                        <li>All user accounts</li>
+                    </ul>
+                    <div class="alert alert-info">
+                        <strong>RECOMMENDATION:</strong> Create a backup of your current database first before proceeding with this restore.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" @onclick="NavigateToBackup">
+                        <Icon Name="activity-generic" /> Create Backup Now
+                    </button>
+                    <button class="btn btn-secondary" @onclick="CancelRestore">Cancel</button>
+                    <button class="btn btn-warning" @onclick="ShowFinalWarning">I Have a Backup - Proceed</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Warning Modal 2 - Final Warning *@
+@if (_showWarning2)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">⚠️ FINAL WARNING</h5>
+                </div>
+                <div class="modal-body">
+                    <p><strong>After restore completes:</strong></p>
+                    <ul>
+                        <li>The application will shut down automatically</li>
+                        <li>You MUST restart the server</li>
+                        <li>You MUST login with credentials from the RESTORED backup</li>
+                        <li>Your current login credentials will NOT work</li>
+                    </ul>
+                    <p class="text-danger"><strong>Are you absolutely sure you want to proceed?</strong></p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelRestore">Cancel</button>
+                    <button class="btn btn-danger" @onclick="PerformRestore">
+                        Yes, Restore Now
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Success Modal - Restore Complete *@
+@if (_showSuccessModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">✓ Restore Complete</h5>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Database restore completed successfully!</strong></p>
+                    <p>The application will now shut down. Please:</p>
+                    <ol>
+                        <li>Restart the server</li>
+                        <li>Login with credentials from the restored backup</li>
+                    </ol>
+                    <p class="text-muted">This window will close in a few seconds...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _creatingBackup;
+    private bool _restoring;
+    private bool _showWarning1;
+    private bool _showWarning2;
+    private bool _showSuccessModal;
+    private string? _message;
+    private bool _isError;
+    private IBrowserFile? _selectedFile;
+
+    private async Task CreateBackup()
+    {
+        _creatingBackup = true;
+        _message = null;
+
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var username = authState.User.Identity?.Name ?? "Unknown";
+
+            Logger.LogInformation("Creating backup for user: {Username}", username);
+
+            var backupData = await BackupService.CreateBackupAsync(username);
+            var fileName = $"firearmtracker_backup_{DateTime.Now:yyyyMMdd_HHmmss}.ftrackbak";
+
+            // Trigger download
+            var base64 = Convert.ToBase64String(backupData);
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64);
+
+            _message = $"Backup created successfully: {fileName}";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error creating backup");
+            _message = $"Error creating backup: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _creatingBackup = false;
+        }
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+        _message = null;
+    }
+
+    private void ShowRestoreWarning()
+    {
+        _showWarning1 = true;
+    }
+
+    private void NavigateToBackup()
+    {
+        // Close modal and scroll to backup section
+        _showWarning1 = false;
+    }
+
+    private void ShowFinalWarning()
+    {
+        _showWarning1 = false;
+        _showWarning2 = true;
+    }
+
+    private void CancelRestore()
+    {
+        _showWarning1 = false;
+        _showWarning2 = false;
+        _selectedFile = null;
+    }
+
+    private async Task PerformRestore()
+    {
+        _showWarning2 = false;
+        _restoring = true;
+        _message = null;
+
+        try
+        {
+            if (_selectedFile == null)
+            {
+                throw new InvalidOperationException("No file selected");
+            }
+
+            // Read the entire file into memory first
+            byte[] fileBytes;
+            using (var uploadStream = _selectedFile.OpenReadStream(maxAllowedSize: 1024 * 1024 * 500)) // 500MB max
+            {
+                using var memoryStream = new MemoryStream();
+                await uploadStream.CopyToAsync(memoryStream);
+                fileBytes = memoryStream.ToArray();
+            }
+
+            // Validate backup
+            using (var validationStream = new MemoryStream(fileBytes))
+            {
+                var metadata = await BackupService.ValidateBackupAsync(validationStream);
+                Logger.LogInformation("Validated backup: Version {Version}, Created {Date}",
+                    metadata.Version, metadata.CreatedDate);
+            }
+
+            // Perform restore
+            using (var restoreStream = new MemoryStream(fileBytes))
+            {
+                await BackupService.RestoreBackupAsync(restoreStream);
+            }
+
+            // Show success modal
+            _showSuccessModal = true;
+            StateHasChanged();
+
+            // Wait a few seconds then shutdown
+            await Task.Delay(5000);
+
+            Logger.LogWarning("Shutting down application after restore");
+            HostLifetime.StopApplication();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error restoring backup");
+            _message = $"Error restoring backup: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _restoring = false;
+            _selectedFile = null;
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+}
