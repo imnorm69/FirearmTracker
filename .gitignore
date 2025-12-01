@@ -78,3 +78,8 @@ Thumbs.db
 
 # Zip archives
 *.zip
+
+# Auto-copied asset files (source is in /assets/)
+FirearmTracker.Web/wwwroot/images/*.svg
+FirearmTracker.Web/wwwroot/images/*.png
+FirearmTracker.Web/wwwroot/images/*.ico

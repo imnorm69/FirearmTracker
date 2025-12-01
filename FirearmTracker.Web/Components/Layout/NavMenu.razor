@@ -1,6 +1,5 @@
 ﻿@using FirearmTracker.Core.Models
 @inject NavigationManager Navigation
-
 <AuthorizeView>
     <Authorized>
         <a href="/profile" class="text-decoration-none p-3 d-block" style="border-bottom: 1px solid rgba(255,255,255,.1);">
@@ -11,16 +10,13 @@
         </a>
     </Authorized>
 </AuthorizeView>
-
 <div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">FirearmTracker</a>
+    <div class="container-fluid" style="padding: 15px; height: 190px; display: flex; justify-content: center; align-items: center;">
+        <img src="/images/firearmtracker-icon-480x480.svg" alt="FirearmTracker Logo" height="160" width="160" />
     </div>
 </div>
-
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="flex-column">
         <div class="nav-item px-3">

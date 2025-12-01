@@ -24,9 +24,6 @@ builder.Services.AddSingleton<IDatabaseConfigurationService, DatabaseConfigurati
 builder.Services.AddSingleton<IHealthCheckService, HealthCheckService>();
 
 // Database - Configure based on dbconfig.json
-// Database - Configure based on dbconfig.json
-// Database - Configure based on dbconfig.json
-// Database - Configure based on dbconfig.json
 builder.Services.AddDbContext<FirearmTrackerContext>((serviceProvider, options) =>
 {
     var environment = serviceProvider.GetRequiredService<IWebHostEnvironment>();
@@ -92,6 +89,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.Cookie.SameSite = SameSiteMode.Lax;  // CRITICAL: Allow cross-device access
+        options.Cookie.Name = "FirearmTracker.Auth";  // Explicit cookie name
     });
 
 builder.Services.AddAuthorization();

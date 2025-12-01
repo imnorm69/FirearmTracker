@@ -31,4 +31,14 @@
     <Folder Include="Uploads\" />
   </ItemGroup>
 
+  <Target Name="CopyAssetsToWwwroot" BeforeTargets="Build">
+    <ItemGroup>
+      <AssetFiles Include="$(SolutionDir)assets\*.svg" />
+      <AssetFiles Include="$(SolutionDir)assets\*.png" />
+      <AssetFiles Include="$(SolutionDir)assets\*.ico" />
+    </ItemGroup>
+    <Copy SourceFiles="@(AssetFiles)" DestinationFolder="wwwroot\images" SkipUnchangedFiles="true" />
+    <Message Text="Copied asset files to wwwroot\images" Importance="high" />
+  </Target>
+
 </Project>
