@@ -1,15 +1,23 @@
 using FirearmTracker.Core.Enums;
-using FirearmTracker.Core.Models;
 using FirearmTracker.Core.Interfaces;
+using FirearmTracker.Core.Models;
 using FirearmTracker.Data.Context;
 using FirearmTracker.Data.Repositories;
 using FirearmTracker.Web.Components;
 using FirearmTracker.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Data Protection to use a persistent key location
+var keysDirectory = Path.Combine(builder.Environment.ContentRootPath, "keys");
+Directory.CreateDirectory(keysDirectory); // Ensure directory exists
+builder.Services.AddDataProtection()
+    .SetApplicationName("FirearmTracker")
+    .PersistKeysToFileSystem(new DirectoryInfo(keysDirectory));
 
 // Razor / Blazor
 builder.Services.AddRazorComponents()

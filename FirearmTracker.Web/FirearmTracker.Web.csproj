@@ -31,6 +31,13 @@
     <Folder Include="Uploads\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Update="dbconfig*.json">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  
   <Target Name="CopyAssetsToWwwroot" BeforeTargets="Build">
     <ItemGroup>
       <AssetFiles Include="$(SolutionDir)assets\*.svg" />
