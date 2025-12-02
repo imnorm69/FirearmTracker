@@ -4,8 +4,8 @@ namespace FirearmTracker.Web.Services
 {
     public class CaliberService : ICaliberService
     {
-        private readonly List<string> _commonCalibers = new()
-        {
+        private readonly List<string> _commonCalibers =
+        [
             // Pistol Calibers
             ".22 LR",
             ".25 ACP",
@@ -44,9 +44,9 @@ namespace FirearmTracker.Web.Services
             "20 Gauge",
             "28 Gauge",
             ".410 Bore"
-        };
+        ];
 
-        private readonly HashSet<string> _customCalibers = new();
+        private readonly HashSet<string> _customCalibers = [];
 
         public List<string> GetAllCalibers()
         {

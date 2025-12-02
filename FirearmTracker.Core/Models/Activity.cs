@@ -19,7 +19,7 @@ namespace FirearmTracker.Core.Models
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
         public DateTime? ModifiedDate { get; set; }
-        public bool IsDeleted { get; set; } = false;
+        public bool IsDeleted { get; set; }
 
         // Navigation property
         public Firearm? Firearm { get; set; }

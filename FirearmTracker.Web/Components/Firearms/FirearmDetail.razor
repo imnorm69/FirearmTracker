@@ -146,7 +146,7 @@ else
                 </button>
                 <button class="tab-button @(selectedTab == "accessories" ? "active" : "")"
                         @onclick='() => { selectedTab = "accessories"; StateHasChanged(); }'>
-                    <Icon Name="@IconService.GetTabIcon("accessories")" Size="small" />
+                    <Icon Name="@IconService.GetTabIcon("accessory")" Size="small" />
                     Accessories
                 </button>
                 <button class="tab-button @(selectedTab == "ammunition" ? "active" : "")"
@@ -705,7 +705,6 @@ else
     private Firearm? firearm;
     private List<Activity> activities = new();
     private List<Document> allDocuments = new();
-    private bool showDeleteConfirmation = false;
     private int activityToDelete = 0;
     private string selectedTab = "transactions";
     private List<Accessory> linkedAccessories = new();
@@ -787,12 +786,10 @@ else
     private void ConfirmDeleteActivity(int activityId)
     {
         activityToDelete = activityId;
-        showDeleteConfirmation = true;
     }
 
     private void CancelDeleteActivity()
     {
-        showDeleteConfirmation = false;
         activityToDelete = 0;
     }
 
@@ -802,7 +799,6 @@ else
         {
             await ActivityRepository.DeleteAsync(activityToDelete);
             activities = await ActivityRepository.GetAllForFirearmAsync(Id);
-            showDeleteConfirmation = false;
             activityToDelete = 0;
         }
     }

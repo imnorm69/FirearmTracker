@@ -7,7 +7,7 @@
         public const string PowerUser = "PowerUser";
         public const string ReadOnly = "ReadOnly";
 
-        public static readonly string[] AllRoles = { Owner, Administrator, PowerUser, ReadOnly };
+        public static readonly string[] AllRoles = [Owner, Administrator, PowerUser, ReadOnly];
 
         public static bool IsValidRole(string role)
         {

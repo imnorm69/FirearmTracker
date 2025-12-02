@@ -6,18 +6,12 @@ namespace FirearmTracker.Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class DocumentsController : ControllerBase
+    public class DocumentsController(
+        IDocumentRepository documentRepository,
+        FileUploadService fileUploadService) : ControllerBase
     {
-        private readonly IDocumentRepository _documentRepository;
-        private readonly FileUploadService _fileUploadService;
-
-        public DocumentsController(
-            IDocumentRepository documentRepository,
-            FileUploadService fileUploadService)
-        {
-            _documentRepository = documentRepository;
-            _fileUploadService = fileUploadService;
-        }
+        private readonly IDocumentRepository _documentRepository = documentRepository;
+        private readonly FileUploadService _fileUploadService = fileUploadService;
 
         [HttpGet("{id}/download")]
         public async Task<IActionResult> Download(int id)

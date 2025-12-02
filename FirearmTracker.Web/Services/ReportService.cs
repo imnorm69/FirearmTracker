@@ -2,31 +2,21 @@ using FirearmTracker.Core.Enums;
 using FirearmTracker.Core.Interfaces;
 using FirearmTracker.Core.Models;
 using FirearmTracker.Core.Models.Reports;
-using Microsoft.EntityFrameworkCore;
 
 namespace FirearmTracker.Web.Services
 {
-    public class ReportService : IReportService
+    public class ReportService(
+        IFirearmRepository firearmRepository,
+        IActivityRepository activityRepository,
+        IAccessoryRepository accessoryRepository,
+        IDocumentRepository documentRepository,
+        FirearmOwnershipService ownershipService) : IReportService
     {
-        private readonly IFirearmRepository _firearmRepository;
-        private readonly IActivityRepository _activityRepository;
-        private readonly IAccessoryRepository _accessoryRepository;
-        private readonly IDocumentRepository _documentRepository;
-        private readonly FirearmOwnershipService _ownershipService;
-
-        public ReportService(
-            IFirearmRepository firearmRepository,
-            IActivityRepository activityRepository,
-            IAccessoryRepository accessoryRepository,
-            IDocumentRepository documentRepository,
-            FirearmOwnershipService ownershipService)
-        {
-            _firearmRepository = firearmRepository;
-            _activityRepository = activityRepository;
-            _accessoryRepository = accessoryRepository;
-            _documentRepository = documentRepository;
-            _ownershipService = ownershipService;
-        }
+        private readonly IFirearmRepository _firearmRepository = firearmRepository;
+        private readonly IActivityRepository _activityRepository = activityRepository;
+        private readonly IAccessoryRepository _accessoryRepository = accessoryRepository;
+        private readonly IDocumentRepository _documentRepository = documentRepository;
+        private readonly FirearmOwnershipService _ownershipService = ownershipService;
 
         #region Configuration Methods
 
@@ -37,31 +27,30 @@ namespace FirearmTracker.Web.Services
                 ReportType = ReportType.FirearmInventory,
                 SupportsOnScreenView = true,
                 SupportsPrint = true,
-                SupportedExports = new List<ExportFormat> { ExportFormat.Pdf, ExportFormat.Excel, ExportFormat.Csv }
-            };
+                SupportedExports = [ExportFormat.Pdf, ExportFormat.Excel, ExportFormat.Csv],
+                // Define available columns
+                AvailableColumns =
+                [
+                    "Manufacturer",
+                    "Model",
+                    "Caliber",
+                    "SerialNumber",
+                    "FirearmType",
+                    "DatePurchased",
+                    "PurchasePrice",
+                    "Notes"
+                ],
 
-            // Define available columns
-            config.AvailableColumns = new List<string>
-            {
-                "Manufacturer",
-                "Model",
-                "Caliber",
-                "SerialNumber",
-                "FirearmType",
-                "DatePurchased",
-                "PurchasePrice",
-                "Notes"
-            };
-
-            // Default selected columns
-            config.SelectedColumns = new List<string>
-            {
-                "Manufacturer",
-                "Model",
-                "Caliber",
-                "SerialNumber",
-                "DatePurchased",
-                "PurchasePrice"
+                // Default selected columns
+                SelectedColumns =
+                [
+                    "Manufacturer",
+                    "Model",
+                    "Caliber",
+                    "SerialNumber",
+                    "DatePurchased",
+                    "PurchasePrice"
+                ]
             };
 
             return config;
@@ -74,41 +63,40 @@ namespace FirearmTracker.Web.Services
                 ReportType = ReportType.FirearmDetail,
                 SupportsOnScreenView = true,
                 SupportsPrint = true,
-                SupportedExports = new List<ExportFormat> { ExportFormat.Pdf },
+                SupportedExports = [ExportFormat.Pdf],
                 PageBreakBetweenRecords = true,
-                PreventLineBreaks = true
-            };
+                PreventLineBreaks = true,
+                // Define header fields
+                HeaderFields =
+                [
+                    "Manufacturer",
+                    "Model",
+                    "Caliber",
+                    "SerialNumber",
+                    "DatePurchased",
+                    "PurchasePrice",
+                    "DateSold",
+                    "SoldPrice"
+                ],
 
-            // Define header fields
-            config.HeaderFields = new List<string>
-            {
-                "Manufacturer",
-                "Model",
-                "Caliber",
-                "SerialNumber",
-                "DatePurchased",
-                "PurchasePrice",
-                "DateSold",
-                "SoldPrice"
-            };
-
-            // Define available related tables
-            config.AvailableRelatedTables = new List<string>
-            {
-                "Accessories",
-                "ShootingSessions",
-                "Transactions",
-                "Maintenance",
-                "Photos"
+                // Define available related tables
+                AvailableRelatedTables =
+                [
+                    "Accessories",
+                    "ShootingSessions",
+                    "Transactions",
+                    "Maintenance",
+                    "Photos"
+                ]
             };
 
             // Default: all tables selected
-            config.SelectedRelatedTables = new List<string>(config.AvailableRelatedTables);
+            config.SelectedRelatedTables = [.. config.AvailableRelatedTables];
 
             return config;
         }
 
-        #endregion
+        #endregion Configuration Methods
 
         #region Data Generation Methods
 
@@ -134,7 +122,7 @@ namespace FirearmTracker.Web.Services
             foreach (var firearm in sortedFirearms)
             {
                 var row = new Dictionary<string, object?>();
-                
+
                 foreach (var column in config.SelectedColumns)
                 {
                     row[column] = column switch
@@ -150,7 +138,7 @@ namespace FirearmTracker.Web.Services
                         _ => null
                     };
                 }
-                
+
                 result.Rows.Add(row);
             }
 
@@ -177,16 +165,16 @@ namespace FirearmTracker.Web.Services
                 var record = new DocumentReportRecord();
 
                 // Build header fields
-                var purchaseInfo = await _ownershipService.GetLatestPurchaseInfoAsync(firearm.Id);
-                
+                var (Date, Price) = await _ownershipService.GetLatestPurchaseInfoAsync(firearm.Id);
+
                 record.HeaderFields = new Dictionary<string, object?>
                 {
                     ["Manufacturer"] = firearm.Manufacturer,
                     ["Model"] = firearm.Model,
                     ["Caliber"] = firearm.Caliber,
                     ["SerialNumber"] = firearm.SerialNumber,
-                    ["DatePurchased"] = purchaseInfo.Date,
-                    ["PurchasePrice"] = purchaseInfo.Price,
+                    ["DatePurchased"] = Date,
+                    ["PurchasePrice"] = Price,
                     ["DateSold"] = null, // TODO: Get from latest sale activity
                     ["SoldPrice"] = null // TODO: Get from latest sale activity
                 };
@@ -231,7 +219,7 @@ namespace FirearmTracker.Web.Services
             return result;
         }
 
-        #endregion
+        #endregion Data Generation Methods
 
         #region Export Methods
 
@@ -253,50 +241,54 @@ namespace FirearmTracker.Web.Services
             throw new NotImplementedException("CSV export will be implemented in a future update");
         }
 
-        #endregion
+        #endregion Export Methods
 
         #region Helper Methods
 
         public async Task<List<string>> GetDistinctManufacturersAsync()
         {
             var firearms = await _firearmRepository.GetAllAsync();
-            return firearms
+            return [.. firearms
                 .Where(f => !string.IsNullOrEmpty(f.Manufacturer))
                 .Select(f => f.Manufacturer)
                 .Distinct()
-                .OrderBy(m => m)
-                .ToList();
+                .OrderBy(m => m)];
         }
 
         public async Task<List<string>> GetDistinctCalibersAsync()
         {
             var firearms = await _firearmRepository.GetAllAsync();
-            return firearms
+            return [.. firearms
                 .Where(f => !string.IsNullOrEmpty(f.Caliber))
                 .Select(f => f.Caliber!)
                 .Distinct()
-                .OrderBy(c => c)
-                .ToList();
+                .OrderBy(c => c)];
         }
 
-        #endregion
+        #endregion Helper Methods
 
         #region Private Helper Methods
 
-        private List<Firearm> ApplyFilters(List<Firearm> firearms, List<FilterOption> filters)
+#pragma warning disable IDE0060 // Remove unused parameter
+
+        private static List<Firearm> ApplyFilters(List<Firearm> firearms, List<FilterOption> filters)
+#pragma warning restore IDE0060 // Remove unused parameter
         {
             // TODO: Implement filtering logic
             // For now, just return all firearms
-            return firearms.Where(f => !f.IsDeleted).ToList();
+            return [.. firearms.Where(f => !f.IsDeleted)];
         }
 
-        private List<Firearm> ApplySorting(List<Firearm> firearms, List<SortOption> sortOptions)
+#pragma warning disable IDE0060 // Remove unused parameter
+
+        private static List<Firearm> ApplySorting(List<Firearm> firearms, List<SortOption> sortOptions)
+#pragma warning restore IDE0060 // Remove unused parameter
         {
             // TODO: Implement multi-field sorting with priority
             // For now, just return unsorted
             return firearms;
         }
 
-        #endregion
+        #endregion Private Helper Methods
     }
 }

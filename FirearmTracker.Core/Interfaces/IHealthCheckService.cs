@@ -1,4 +1,6 @@
-﻿namespace FirearmTracker.Core.Interfaces
+﻿using FirearmTracker.Core.Models;
+
+namespace FirearmTracker.Core.Interfaces
 {
     public interface IHealthCheckService
     {

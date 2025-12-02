@@ -1,5 +1,5 @@
-﻿using FirearmTracker.Core.Models;
-using FirearmTracker.Core.Interfaces;
+﻿using FirearmTracker.Core.Interfaces;
+using FirearmTracker.Core.Models;
 
 namespace FirearmTracker.Web.Services
 {

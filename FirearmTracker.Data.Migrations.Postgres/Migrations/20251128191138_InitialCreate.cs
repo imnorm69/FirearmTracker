@@ -1,5 +1,4 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
@@ -271,7 +270,7 @@ namespace FirearmTracker.Data.Migrations.Postgres.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_FirearmAmmunitionLinks_FirearmId_AmmunitionId",
                 table: "FirearmAmmunitionLinks",
-                columns: new[] { "FirearmId", "AmmunitionId" },
+                columns: ["FirearmId", "AmmunitionId"],
                 unique: true);
 
             migrationBuilder.CreateIndex(

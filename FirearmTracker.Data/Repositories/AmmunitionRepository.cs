@@ -5,14 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FirearmTracker.Data.Repositories
 {
-    public class AmmunitionRepository : IAmmunitionRepository
+    public class AmmunitionRepository(FirearmTrackerContext context) : IAmmunitionRepository
     {
-        private readonly FirearmTrackerContext _context;
-
-        public AmmunitionRepository(FirearmTrackerContext context)
-        {
-            _context = context;
-        }
+        private readonly FirearmTrackerContext _context = context;
 
         public async Task<List<Ammunition>> GetAllAsync()
         {

@@ -19,6 +19,7 @@ namespace FirearmTracker.Core.Interfaces
         bool CanAccessAdmin { get; }
 
         void SetUser(User user);
+
         void ClearUser();
     }
 }

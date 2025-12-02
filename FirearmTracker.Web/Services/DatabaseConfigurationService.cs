@@ -5,18 +5,14 @@ using System.Text.Json;
 
 namespace FirearmTracker.Web.Services
 {
-    public class DatabaseConfigurationService : IDatabaseConfigurationService
+    public class DatabaseConfigurationService(
+        IWebHostEnvironment environment,
+        ILogger<DatabaseConfigurationService> logger) : IDatabaseConfigurationService
     {
-        private readonly string _configFilePath;
-        private readonly ILogger<DatabaseConfigurationService> _logger;
+        private readonly string _configFilePath = Path.Combine(environment.ContentRootPath, "dbconfig.json");
+        private readonly ILogger<DatabaseConfigurationService> _logger = logger;
 
-        public DatabaseConfigurationService(
-            IWebHostEnvironment environment,
-            ILogger<DatabaseConfigurationService> logger)
-        {
-            _configFilePath = Path.Combine(environment.ContentRootPath, "dbconfig.json");
-            _logger = logger;
-        }
+        private readonly JsonSerializerOptions _jsonIndented = new() { WriteIndented = true };
 
         public async Task<DatabaseConfiguration?> LoadConfigurationAsync()
         {
@@ -44,10 +40,7 @@ namespace FirearmTracker.Web.Services
         {
             try
             {
-                var json = JsonSerializer.Serialize(configuration, new JsonSerializerOptions
-                {
-                    WriteIndented = true
-                });
+                var json = JsonSerializer.Serialize(configuration, _jsonIndented);
                 await File.WriteAllTextAsync(_configFilePath, json);
                 _logger.LogInformation("Saved database configuration: {Type}", configuration.DatabaseType);
             }

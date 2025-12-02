@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+     viewBox="0 0 48 48">
+
+  <!-- Border -->
+  <rect x="2" y="2" width="44" height="44" rx="6"
+        fill="none" stroke="#4b5563" stroke-width="3.5" />
+
+  <!-- Scaled + centered firearm -->
+  <!-- scale(1.17) brings original 22px width → ≈26px width -->
+  <!-- translate(11,11) positions it into the 9px margin box -->
+  <g transform="translate(7,13) scale(1.3)"
+     fill="none" stroke-width="1.3"
+     stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- trigger guard -->
+    <path d="M16 4v2.5a 3 1.5 0 0 1 -3 1.5h-3.5" stroke="#AFAFAF" />
+
+    <!-- trigger -->
+    <path d="M12 4a 2 2 0 0 0 .5 2" stroke="#AFAFAF" />
+
+    <!-- barrel -->
+    <path d="M6 0h18v4h-20z" stroke="#4F4F4F" fill="#4F4F4F" />
+
+    <!-- handgrip -->
+    <path d="M4 4h6l-3 12h-5z" stroke="#4F4F4F" fill="#4F4F4F" />
+
+    <!-- line to separate grip from barrel -->
+    <line stroke="#9F9F9F" x1="4" y1="5" x2="10" y2="5" stroke-width="1" />
+
+    <!-- barrel detail line -->
+    <line stroke="#9F9F9F" x1="5" y1="2" x2="22" y2="2" stroke-width="1" />
+  </g>
+</svg>

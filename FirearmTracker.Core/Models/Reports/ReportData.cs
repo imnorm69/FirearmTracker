@@ -15,8 +15,8 @@ namespace FirearmTracker.Core.Models.Reports
     /// </summary>
     public class TabularReportResult : ReportResult
     {
-        public List<string> ColumnHeaders { get; set; } = new();
-        public List<Dictionary<string, object?>> Rows { get; set; } = new();
+        public List<string> ColumnHeaders { get; set; } = [];
+        public List<Dictionary<string, object?>> Rows { get; set; } = [];
     }
 
     /// <summary>
@@ -24,7 +24,7 @@ namespace FirearmTracker.Core.Models.Reports
     /// </summary>
     public class DocumentReportResult : ReportResult
     {
-        public List<DocumentReportRecord> Records { get; set; } = new();
+        public List<DocumentReportRecord> Records { get; set; } = [];
     }
 
     /// <summary>
@@ -32,8 +32,8 @@ namespace FirearmTracker.Core.Models.Reports
     /// </summary>
     public class DocumentReportRecord
     {
-        public Dictionary<string, object?> HeaderFields { get; set; } = new();
-        public Dictionary<string, List<Dictionary<string, object?>>> RelatedTables { get; set; } = new();
+        public Dictionary<string, object?> HeaderFields { get; set; } = [];
+        public Dictionary<string, List<Dictionary<string, object?>>> RelatedTables { get; set; } = [];
     }
 
     /// <summary>
@@ -67,13 +67,14 @@ namespace FirearmTracker.Core.Models.Reports
         public DateTime? DateSold { get; set; }
         public decimal? SoldPrice { get; set; }
         public string Notes { get; set; } = string.Empty;
-        
+
         // Related data
-        public List<AccessoryReportData> Accessories { get; set; } = new();
-        public List<ActivityReportData> Transactions { get; set; } = new();
-        public List<ActivityReportData> MaintenanceRecords { get; set; } = new();
-        public List<ActivityReportData> ShootingSessions { get; set; } = new();
-        public List<DocumentReportData> Photos { get; set; } = new();
+        public List<AccessoryReportData> Accessories { get; set; } = [];
+
+        public List<ActivityReportData> Transactions { get; set; } = [];
+        public List<ActivityReportData> MaintenanceRecords { get; set; } = [];
+        public List<ActivityReportData> ShootingSessions { get; set; } = [];
+        public List<DocumentReportData> Photos { get; set; } = [];
     }
 
     public class AccessoryReportData

@@ -6,8 +6,9 @@ namespace FirearmTracker.Core.Interfaces
             Stream fileStream,
             string originalFileName,
             string contentType);
-        
+
         string GetFilePath(string fileName);
+
         bool DeleteFile(string fileName);
     }
 }

@@ -3,16 +3,10 @@ using FirearmTracker.Core.Models;
 
 namespace FirearmTracker.Web.Services
 {
-    public class AuthenticationService : IAuthenticationService
+    public class AuthenticationService(IUserRepository userRepository, IWebHostEnvironment environment) : IAuthenticationService
     {
-        private readonly IUserRepository _userRepository;
-        private readonly IWebHostEnvironment _environment;
-
-        public AuthenticationService(IUserRepository userRepository, IWebHostEnvironment environment)  // Add this parameter
-        {
-            _userRepository = userRepository;
-            _environment = environment;  // Add this assignment
-        }
+        private readonly IUserRepository _userRepository = userRepository;
+        private readonly IWebHostEnvironment _environment = environment;
 
         public string HashPassword(string password)
         {

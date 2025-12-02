@@ -5,14 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FirearmTracker.Data.Repositories
 {
-    public class AccessoryRepository : IAccessoryRepository
+    public class AccessoryRepository(FirearmTrackerContext context) : IAccessoryRepository
     {
-        private readonly FirearmTrackerContext _context;
-
-        public AccessoryRepository(FirearmTrackerContext context)
-        {
-            _context = context;
-        }
+        private readonly FirearmTrackerContext _context = context;
 
         public async Task<List<Accessory>> GetAllAsync()
         {
@@ -35,7 +30,7 @@ namespace FirearmTracker.Data.Repositories
                 .Where(a => a.LinkedFirearmId == firearmId)
                 .ToListAsync();
 
-            return accessories.Where(a => !a.IsDeleted).ToList();
+            return [.. accessories.Where(a => !a.IsDeleted)];
         }
 
         public async Task<Accessory> AddAsync(Accessory accessory)

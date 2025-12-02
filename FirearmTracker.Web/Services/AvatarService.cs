@@ -2,16 +2,10 @@
 
 namespace FirearmTracker.Web.Services
 {
-    public class AvatarService : IAvatarService
+    public class AvatarService(IUserRepository userRepository, IWebHostEnvironment environment) : IAvatarService
     {
-        private readonly IUserRepository _userRepository;
-        private readonly IWebHostEnvironment _environment;
-
-        public AvatarService(IUserRepository userRepository, IWebHostEnvironment environment)
-        {
-            _userRepository = userRepository;
-            _environment = environment;
-        }
+        private readonly IUserRepository _userRepository = userRepository;
+        private readonly IWebHostEnvironment _environment = environment;
 
         public async Task<(byte[]? imageData, string? contentType)> GetUserAvatarAsync(int userId)
         {

@@ -3,13 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FirearmTracker.Data.Context
 {
-    public class FirearmTrackerContext : DbContext
+    public class FirearmTrackerContext(DbContextOptions<FirearmTrackerContext> options) : DbContext(options)
     {
-        public FirearmTrackerContext(DbContextOptions<FirearmTrackerContext> options)
-            : base(options)
-        {
-        }
-
         public DbSet<Firearm> Firearms { get; set; }
         public DbSet<Activity> Activities { get; set; }
         public DbSet<Document> Documents { get; set; }

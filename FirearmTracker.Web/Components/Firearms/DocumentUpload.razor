@@ -68,7 +68,7 @@
                     </div>
                     <div class="document-card-actions">
                         <a href="@GetFileUrl(doc.FileName)" class="btn-icon-only" title="Download" target="_blank" download="@doc.OriginalFileName" @onclick:stopPropagation="true">
-                            <Icon Name="view" />
+                            <Icon Name="download" />
                         </a>
                         <button @onclick="() => DeleteDocument(doc.Id)" @onclick:stopPropagation="true" class="btn-icon-only" title="Delete">
                             <Icon Name="delete" />

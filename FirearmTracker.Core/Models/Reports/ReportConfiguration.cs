@@ -8,9 +8,9 @@ namespace FirearmTracker.Core.Models.Reports
     public abstract class ReportConfiguration
     {
         public ReportType ReportType { get; set; }
-        public List<SortOption> SortOptions { get; set; } = new();
-        public List<FilterOption> Filters { get; set; } = new();
-        public List<ExportFormat> SupportedExports { get; set; } = new();
+        public List<SortOption> SortOptions { get; set; } = [];
+        public List<FilterOption> Filters { get; set; } = [];
+        public List<ExportFormat> SupportedExports { get; set; } = [];
         public bool SupportsOnScreenView { get; set; } = true;
         public bool SupportsPrint { get; set; } = true;
     }
@@ -20,8 +20,8 @@ namespace FirearmTracker.Core.Models.Reports
     /// </summary>
     public class TabularReportConfiguration : ReportConfiguration
     {
-        public List<string> AvailableColumns { get; set; } = new();
-        public List<string> SelectedColumns { get; set; } = new();
+        public List<string> AvailableColumns { get; set; } = [];
+        public List<string> SelectedColumns { get; set; } = [];
         public int PageSize { get; set; } = 50;
     }
 
@@ -30,9 +30,9 @@ namespace FirearmTracker.Core.Models.Reports
     /// </summary>
     public class DocumentReportConfiguration : ReportConfiguration
     {
-        public List<string> HeaderFields { get; set; } = new();
-        public List<string> AvailableRelatedTables { get; set; } = new();
-        public List<string> SelectedRelatedTables { get; set; } = new();
+        public List<string> HeaderFields { get; set; } = [];
+        public List<string> AvailableRelatedTables { get; set; } = [];
+        public List<string> SelectedRelatedTables { get; set; } = [];
         public bool PageBreakBetweenRecords { get; set; } = true;
         public bool PreventLineBreaks { get; set; } = true;
     }
@@ -44,8 +44,8 @@ namespace FirearmTracker.Core.Models.Reports
     {
         public string FieldName { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
-        public bool IsDescending { get; set; } = false;
-        public int Priority { get; set; } = 0; // Higher number = higher priority (applied last)
+        public bool IsDescending { get; set; }
+        public int Priority { get; set; }  // Higher number = higher priority (applied last)
     }
 
     /// <summary>
@@ -75,7 +75,7 @@ namespace FirearmTracker.Core.Models.Reports
     /// </summary>
     public class MultiSelectFilter : FilterOption
     {
-        public List<string> AvailableValues { get; set; } = new();
-        public List<string> SelectedValues { get; set; } = new();
+        public List<string> AvailableValues { get; set; } = [];
+        public List<string> SelectedValues { get; set; } = [];
     }
 }

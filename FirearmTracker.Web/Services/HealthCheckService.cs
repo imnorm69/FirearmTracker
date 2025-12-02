@@ -3,17 +3,12 @@ using FirearmTracker.Core.Models;
 
 namespace FirearmTracker.Web.Services
 {
-    public class HealthCheckService : IHealthCheckService
+    public class HealthCheckService(ILogger<HealthCheckService> logger) : IHealthCheckService
     {
-        private readonly ILogger<HealthCheckService> _logger;
+        private readonly ILogger<HealthCheckService> _logger = logger;
         private HealthCheckResults? _cachedResults;
         private DateTime _lastCheckTime = DateTime.MinValue;
         private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(5);
-
-        public HealthCheckService(ILogger<HealthCheckService> logger)
-        {
-            _logger = logger;
-        }
 
         public async Task<HealthCheckResults> RunChecksAsync()
         {
@@ -23,10 +18,11 @@ namespace FirearmTracker.Web.Services
                 return _cachedResults;
             }
 
-            var results = new HealthCheckResults();
-
-            // Check FFMPEG
-            results.FfmpegAvailable = await CheckFfmpegAsync();
+            var results = new HealthCheckResults
+            {
+                // Check FFMPEG
+                FfmpegAvailable = await CheckFfmpegAsync()
+            };
 
             _cachedResults = results;
             _lastCheckTime = DateTime.Now;

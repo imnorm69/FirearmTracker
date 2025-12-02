@@ -1,7 +1,6 @@
-﻿using System;
+﻿using FirearmTracker.Core.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using FirearmTracker.Core.Enums;
 
 namespace FirearmTracker.Core.Models
 {

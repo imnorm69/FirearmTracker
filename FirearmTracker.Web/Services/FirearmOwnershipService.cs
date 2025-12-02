@@ -3,14 +3,9 @@ using FirearmTracker.Core.Interfaces;
 
 namespace FirearmTracker.Web.Services
 {
-    public class FirearmOwnershipService : IFirearmOwnershipService
+    public class FirearmOwnershipService(IActivityRepository activityRepository) : IFirearmOwnershipService
     {
-        private readonly IActivityRepository _activityRepository;
-
-        public FirearmOwnershipService(IActivityRepository activityRepository)
-        {
-            _activityRepository = activityRepository;
-        }
+        private readonly IActivityRepository _activityRepository = activityRepository;
 
         /// <summary>
         /// Determines if a firearm is currently sold based on transaction history.
@@ -26,7 +21,7 @@ namespace FirearmTracker.Web.Services
                 .OrderByDescending(a => a.ActivityDate)
                 .ToList();
 
-            if (!transactions.Any())
+            if (transactions.Count == 0)
             {
                 // No transactions means not sold (initial collection item)
                 return false;

@@ -1,5 +1,4 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -270,7 +269,7 @@ namespace FirearmTracker.Data.Migrations.Sqlite.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_FirearmAmmunitionLinks_FirearmId_AmmunitionId",
                 table: "FirearmAmmunitionLinks",
-                columns: new[] { "FirearmId", "AmmunitionId" },
+                columns: ["FirearmId", "AmmunitionId"],
                 unique: true);
 
             migrationBuilder.CreateIndex(

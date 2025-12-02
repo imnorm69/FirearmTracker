@@ -1,7 +1,6 @@
-using System;
+using FirearmTracker.Core.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using FirearmTracker.Core.Enums;
 
 namespace FirearmTracker.Core.Models
 {
@@ -34,10 +33,10 @@ namespace FirearmTracker.Core.Models
         public bool IsDeleted { get; set; }
 
         // Navigation property
-        public virtual ICollection<AmmunitionTransaction> Transactions { get; set; } = new List<AmmunitionTransaction>();
+        public virtual ICollection<AmmunitionTransaction> Transactions { get; set; } = [];
 
         // Navigation property for linked firearms
-        public virtual ICollection<FirearmAmmunitionLink> FirearmLinks { get; set; } = new List<FirearmAmmunitionLink>();
+        public virtual ICollection<FirearmAmmunitionLink> FirearmLinks { get; set; } = [];
 
         // Calculated property - current quantity based on transactions
         [NotMapped]
@@ -45,7 +44,7 @@ namespace FirearmTracker.Core.Models
         {
             get
             {
-                if (Transactions == null || !Transactions.Any())
+                if (Transactions == null || Transactions.Count == 0)
                     return 0;
 
                 return Transactions

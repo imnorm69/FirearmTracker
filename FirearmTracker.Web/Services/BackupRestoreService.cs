@@ -8,21 +8,17 @@ using System.Text.Json;
 
 namespace FirearmTracker.Web.Services
 {
-    public class BackupRestoreService : IBackupRestoreService
+    public class BackupRestoreService(
+        FirearmTrackerContext context,
+        IWebHostEnvironment environment,
+        ILogger<BackupRestoreService> logger) : IBackupRestoreService
     {
-        private readonly FirearmTrackerContext _context;
-        private readonly IWebHostEnvironment _environment;
-        private readonly ILogger<BackupRestoreService> _logger;
+        private readonly FirearmTrackerContext _context = context;
+        private readonly IWebHostEnvironment _environment = environment;
+        private readonly ILogger<BackupRestoreService> _logger = logger;
 
-        public BackupRestoreService(
-            FirearmTrackerContext context,
-            IWebHostEnvironment environment,
-            ILogger<BackupRestoreService> logger)
-        {
-            _context = context;
-            _environment = environment;
-            _logger = logger;
-        }
+        private readonly JsonSerializerOptions _jsonIndented = new() { WriteIndented = true };
+        private readonly JsonSerializerOptions _jsonReferenced = new() { ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles };
 
         public async Task<byte[]> CreateBackupAsync(string currentUsername)
         {
@@ -48,7 +44,7 @@ namespace FirearmTracker.Web.Services
                 var metadataEntry = archive.CreateEntry("metadata.json");
                 using (var entryStream = metadataEntry.Open())
                 {
-                    await JsonSerializer.SerializeAsync(entryStream, metadata, new JsonSerializerOptions { WriteIndented = true });
+                    await JsonSerializer.SerializeAsync(entryStream, metadata, _jsonIndented);
                 }
 
                 // Configure JSON options to ignore cycles (navigation properties)
@@ -96,12 +92,7 @@ namespace FirearmTracker.Web.Services
                 using var archive = new ZipArchive(backupStream, ZipArchiveMode.Read, true);
 
                 // Find and read metadata
-                var metadataEntry = archive.GetEntry("metadata.json");
-                if (metadataEntry == null)
-                {
-                    throw new InvalidOperationException("Backup file is invalid: metadata.json not found");
-                }
-
+                var metadataEntry = archive.GetEntry("metadata.json") ?? throw new InvalidOperationException("Backup file is invalid: metadata.json not found");
                 BackupMetadata? metadata;
                 using (var stream = metadataEntry.Open())
                 {
@@ -164,7 +155,7 @@ namespace FirearmTracker.Web.Services
 
                 foreach (var entry in archive.Entries.Where(e => e.FullName.StartsWith("files/uploads/")))
                 {
-                    var relativePath = entry.FullName.Substring("files/uploads/".Length);
+                    var relativePath = entry.FullName["files/uploads/".Length..];
                     var destinationPath = Path.Combine(uploadsPath, relativePath);
 
                     // Create directory if needed
@@ -200,14 +191,14 @@ namespace FirearmTracker.Web.Services
             }
         }
 
-        private async Task ExportTableAsync<T>(ZipArchive archive, string fileName, List<T> data, JsonSerializerOptions options)
+        private static async Task ExportTableAsync<T>(ZipArchive archive, string fileName, List<T> data, JsonSerializerOptions options)
         {
             var entry = archive.CreateEntry(fileName);
             using var stream = entry.Open();
             await JsonSerializer.SerializeAsync(stream, data, options);
         }
 
-        private async Task AddDirectoryToArchive(ZipArchive archive, string sourceDir, string archivePath)
+        private static async Task AddDirectoryToArchive(ZipArchive archive, string sourceDir, string archivePath)
         {
             var files = Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories);
             foreach (var file in files)
@@ -253,15 +244,9 @@ namespace FirearmTracker.Web.Services
 
             using var stream = entry.Open();
 
-            // Configure JSON options to ignore navigation properties and reference loops
-            var jsonOptions = new JsonSerializerOptions
-            {
-                ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles
-            };
+            var data = await JsonSerializer.DeserializeAsync<List<T>>(stream, _jsonReferenced);
 
-            var data = await JsonSerializer.DeserializeAsync<List<T>>(stream, jsonOptions);
-
-            if (data != null && data.Any())
+            if (data != null && data.Count != 0)
             {
                 // Clear change tracker before adding
                 _context.ChangeTracker.Clear();

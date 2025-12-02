@@ -1,18 +1,21 @@
-﻿public class HealthCheckResults
+﻿namespace FirearmTracker.Core.Models
 {
-    public bool FfmpegAvailable { get; set; }
-
-    public bool HasWarnings => !FfmpegAvailable;
-
-    public List<string> GetWarningMessages()
+    public class HealthCheckResults
     {
-        var warnings = new List<string>();
+        public bool FfmpegAvailable { get; set; }
 
-        if (!FfmpegAvailable)
+        public bool HasWarnings => !FfmpegAvailable;
+
+        public List<string> GetWarningMessages()
         {
-            warnings.Add("FFMPEG is not installed or not found in PATH. Video thumbnails will not be generated.");
-        }
+            var warnings = new List<string>();
 
-        return warnings;
+            if (!FfmpegAvailable)
+            {
+                warnings.Add("FFMPEG is not installed or not found in PATH. Video thumbnails will not be generated.");
+            }
+
+            return warnings;
+        }
     }
 }

@@ -1,9 +1,9 @@
 using Docnet.Core;
 using Docnet.Core.Models;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.PixelFormats;
 using FFMpegCore;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 namespace FirearmTracker.Web.Services
 {
@@ -12,7 +12,7 @@ namespace FirearmTracker.Web.Services
         private readonly string _uploadPath;
         private readonly string _thumbnailPath;
         private const long MaxFileSize = 50 * 1024 * 1024; // 50MB
-        private readonly string[] AllowedExtensions = { ".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx", ".mp4", ".mov", ".avi", ".wmv", ".mkv" };
+        private readonly string[] AllowedExtensions = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx", ".mp4", ".mov", ".avi", ".wmv", ".mkv"];
 
         public FileUploadService(IWebHostEnvironment environment)
         {
@@ -134,37 +134,33 @@ namespace FirearmTracker.Web.Services
         {
             try
             {
-                using (var docReader = DocLib.Instance.GetDocReader(filePath, new PageDimensions(1024, 1024)))
+                using var docReader = DocLib.Instance.GetDocReader(filePath, new PageDimensions(1024, 1024));
+                if (docReader.GetPageCount() == 0)
+                    return null;
+
+                using var pageReader = docReader.GetPageReader(0); // First page
+                var rawBytes = pageReader.GetImage();
+                var width = pageReader.GetPageWidth();
+                var height = pageReader.GetPageHeight();
+
+                // Generate unique thumbnail filename
+                var thumbnailFileName = $"{Guid.NewGuid()}.png";
+                var thumbnailPath = Path.Combine(_thumbnailPath, thumbnailFileName);
+
+                // Save as PNG
+                using (var image = Image.LoadPixelData<Bgra32>(rawBytes, width, height))
                 {
-                    if (docReader.GetPageCount() == 0)
-                        return null;
-
-                    using (var pageReader = docReader.GetPageReader(0)) // First page
+                    // Resize to max 256x256 while maintaining aspect ratio
+                    image.Mutate(x => x.Resize(new ResizeOptions
                     {
-                        var rawBytes = pageReader.GetImage();
-                        var width = pageReader.GetPageWidth();
-                        var height = pageReader.GetPageHeight();
+                        Size = new Size(256, 256),
+                        Mode = ResizeMode.Max
+                    }));
 
-                        // Generate unique thumbnail filename
-                        var thumbnailFileName = $"{Guid.NewGuid()}.png";
-                        var thumbnailPath = Path.Combine(_thumbnailPath, thumbnailFileName);
-
-                        // Save as PNG
-                        using (var image = Image.LoadPixelData<Bgra32>(rawBytes, width, height))
-                        {
-                            // Resize to max 256x256 while maintaining aspect ratio
-                            image.Mutate(x => x.Resize(new ResizeOptions
-                            {
-                                Size = new Size(256, 256),
-                                Mode = ResizeMode.Max
-                            }));
-
-                            await image.SaveAsPngAsync(thumbnailPath);
-                        }
-
-                        return thumbnailFileName;
-                    }
+                    await image.SaveAsPngAsync(thumbnailPath);
                 }
+
+                return thumbnailFileName;
             }
             catch (Exception)
             {

@@ -11,7 +11,7 @@ namespace FirearmTracker.Core.Models
         public string? Caliber { get; set; } = string.Empty;
         public string SerialNumber { get; set; } = string.Empty;
         public string Notes { get; set; } = string.Empty;
-        public bool IsDeleted { get; set; } = false;
+        public bool IsDeleted { get; set; }
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
         public DateTime? ModifiedDate { get; set; }
     }
