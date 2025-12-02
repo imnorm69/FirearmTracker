@@ -1,24 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-     viewBox="0 0 24 24">
+     viewBox="0 0 48 48">
   <!-- Rounded border -->
-  <rect x="1" y="1" width="22" height="22" rx="4" ry="4"
-        fill="none" stroke="#4b5563" stroke-width="1.5" />
+  <rect x="2" y="2" width="44" height="44" rx="6" ry="6"
+        fill="none" stroke="#4b5563" stroke-width="3.5" />
 
   <!-- Handle (black) -->
-  <rect x="9" y="7" width="6" height="2" rx="0.8"
-        fill="none" stroke="#111827" stroke-width="1.6" />
-
-  <!-- Toolbox body (red) -->
-  <rect x="6.5" y="9" width="11" height="8.5" rx="1.2"
-        fill="none" stroke="#dc2626" stroke-width="1.6" />
+  <rect x="17" y="14" width="12" height="5" rx="0.8"
+        fill="none" stroke="#4F4F4F" stroke-width="2.3" />
 
   <!-- Lid seam (gray) -->
-  <line x1="6.5" y1="12" x2="17.5" y2="12"
-        stroke="#6b7280" stroke-width="1.4" />
+  <line x1="10" y1="25" x2="38" y2="25"
+        stroke="#6b7280" stroke-width="2.2" />
+
+  <!-- Toolbox body (red) -->
+  <rect x="9" y="19" width="30" height="20" rx="2.4"
+        fill="none" stroke="#dc2626" stroke-width="3" />
 
   <!-- Latches (match box outline: red) -->
-  <line x1="10" y1="11.3" x2="10" y2="12.7"
-        stroke="#dc2626" stroke-width="1.4" />
-  <line x1="14" y1="11.3" x2="14" y2="12.7"
-        stroke="#dc2626" stroke-width="1.4" />
+  <line x1="17" y1="25" x2="20" y2="25"
+        stroke="#dc2626" stroke-width="2.2" />
+  <line x1="31" y1="25" x2="28" y2="25"
+        stroke="#dc2626" stroke-width="2.2" />
 </svg>

@@ -1,18 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-     viewBox="0 0 24 24">
-  <rect x="1" y="1" width="22" height="22" rx="4" ry="4"
-        fill="none" stroke="#4b5563" stroke-width="1.5" />
+     viewBox="0 0 48 48">
+  <!-- Rounded border -->
+  <rect x="2" y="2" width="44" height="44" rx="6" ry="6"
+        fill="none" stroke="#4b5563" stroke-width="3.5" />
 
-  <!-- Arrow down -->
-  <line x1="12" y1="9" x2="12" y2="16"
-        stroke="#111827" stroke-width="1.8"
+  <!-- Arrow up -->
+  <line x1="24" y1="18" x2="24" y2="39"
+        stroke="#9F9F9F" stroke-width="3"
         stroke-linecap="round" />
-  <polyline points="9.5,13.5 12,16 14.5,13.5"
-            fill="none" stroke="#111827" stroke-width="1.8"
+  <polyline points="18,34 24,39 30,34"
+            fill="none" stroke="#9F9F9F" stroke-width="3"
             stroke-linecap="round" stroke-linejoin="round" />
 
-  <!-- Tray (above instead of below to differ from upload) -->
-  <rect x="7" y="6.5" width="10" height="3"
-        rx="1" ry="1"
-        fill="none" stroke="#111827" stroke-width="1.5" />
+  <!-- Tray -->
+  <rect x="9" y="9" width="30" height="14"
+        rx="2" ry="2"
+        fill="red" stroke="#4F4F4F" stroke-width="3" />
 </svg>

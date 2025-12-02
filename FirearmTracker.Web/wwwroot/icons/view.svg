@@ -1,21 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-     viewBox="0 0 24 24">
-  <rect x="1" y="1" width="22" height="22" rx="4" ry="4"
-        fill="none" stroke="#4b5563" stroke-width="1.5" />
-
-  <!-- Eyepieces -->
-  <circle cx="9" cy="13" r="2.4"
-          fill="none" stroke="#111827" stroke-width="1.5" />
-  <circle cx="15" cy="13" r="2.4"
-          fill="none" stroke="#111827" stroke-width="1.5" />
-
-  <!-- Bridge -->
-  <path d="M7.5 10h2.0l1-2h3l1 2h2.0"
-        fill="none" stroke="#111827" stroke-width="1.5"
-        stroke-linecap="round" stroke-linejoin="round" />
+     viewBox="0 0 48 48">
+  <!-- Rounded border -->
+  <rect x="2" y="2" width="44" height="44" rx="6" ry="6"
+        fill="none" stroke="#4b5563" stroke-width="3.5" />
 
   <!-- Lower connection -->
-  <path d="M8 15.8v1.2h2.5M16 15.8v1.2h-2.5"
-        fill="none" stroke="#111827" stroke-width="1.3"
+  <path d="M17 29v2h5M31 29v2h-5"
+        fill="none" stroke="#9F9F9F" stroke-width="2.5"
         stroke-linecap="round" />
+
+  <!-- Eyepieces -->
+  <circle cx="13" cy="26" r="5"
+          fill="none" stroke="#1F1F1F" stroke-width="2.8" />
+  <circle cx="35" cy="26" r="5"
+          fill="none" stroke="#1F1F1F" stroke-width="2.8" />
+
+  <!-- Bridge -->
+  <path d="M13 20h6l2-4h5l2 4h6"
+        fill="none" stroke="#4F4F4F" stroke-width="2.8"
+        stroke-linecap="round" stroke-linejoin="round" />
 </svg>

@@ -1,18 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-     viewBox="0 0 24 24">
-
-  <!-- Rounded outer border -->
-  <rect x="1" y="1" width="22" height="22" rx="4" ry="4"
-        fill="none" stroke="#4b5563" stroke-width="1.5" />
+     viewBox="0 0 48 48">
+  <!-- Rounded border -->
+  <rect x="2" y="2" width="44" height="44" rx="6" ry="6"
+        fill="none" stroke="#4b5563" stroke-width="3.5" />
 
   <!-- Triangle -->
-  <path d="M12 6
-           L17.5 16
-           H6.5
+  <path d="M24 10
+           l15 25
+           h-30
            Z"
-        fill="none"
+        fill="#FFFF00"
         stroke="#dc2626"
-        stroke-width="1.8"
+        stroke-width="2.8"
         stroke-linecap="round"
         stroke-linejoin="round" />
+
+  <path d="M24 17v10"
+      stroke="#FF0000"
+      stroke-width="2.4"
+      stroke-linecap="round"
+      stroke-linejoin="round" />
+  <circle cx="24" cy="31" r="1" stroke="#FF0000" fill="#ff0000" />
 </svg>
